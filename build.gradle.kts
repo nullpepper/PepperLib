@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `maven-publish`
     id("com.diffplug.spotless") version "8.9.0"
 }
 
@@ -59,4 +60,28 @@ tasks.test {
 // javadoc 纳入绿门（check）：doclint reference error 直接阻断构建，防止文档腐化。
 tasks.named("check") {
     dependsOn(tasks.named("javadoc"))
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+            // artifactId 默认取 project.name（pepper-lib），坐标 io.pepper:pepper-lib:<version>。
+        }
+    }
+    repositories {
+        // 默认仅 mavenLocal（publishToMavenLocal）；设置 PEPPER_MAVEN_URL 时
+        // 额外发布到内部仓库（凭据经环境变量注入，不落库）。
+        val pepperMavenUrl = providers.environmentVariable("PEPPER_MAVEN_URL").orNull
+        if (pepperMavenUrl != null) {
+            maven {
+                name = "pepper-internal"
+                url = uri(pepperMavenUrl)
+                credentials {
+                    username = providers.environmentVariable("PEPPER_MAVEN_USER").orNull
+                    password = providers.environmentVariable("PEPPER_MAVEN_TOKEN").orNull
+                }
+            }
+        }
+    }
 }
