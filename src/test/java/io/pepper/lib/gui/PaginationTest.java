@@ -93,4 +93,30 @@ class PaginationTest {
         final PageWindow window = PageWindow.of(1, 3, 0);
         assertNull(Pagination.itemAt(ITEMS, window, 0));
     }
+
+    // ------------------------------------------------------------------
+    // pageCount：总页数（与两插件既有语义一致：0/空视为 1 页）
+    // ------------------------------------------------------------------
+
+    @Test
+    void pageCountTreatsEmptyOrInvalidAsOnePage() {
+        assertEquals(1, Pagination.pageCount(0, 5));
+        assertEquals(1, Pagination.pageCount(-1, 5));
+        assertEquals(1, Pagination.pageCount(10, 0));
+        assertEquals(1, Pagination.pageCount(10, -1));
+    }
+
+    @Test
+    void pageCountRoundsUp() {
+        assertEquals(1, Pagination.pageCount(1, 5));
+        assertEquals(2, Pagination.pageCount(10, 5));
+        assertEquals(3, Pagination.pageCount(11, 5));
+        assertEquals(5, Pagination.pageCount(45, 9));
+    }
+
+    @Test
+    void pageCountMatchesExactDivision() {
+        assertEquals(2, Pagination.pageCount(10, 5));
+        assertEquals(3, Pagination.pageCount(15, 5));
+    }
 }

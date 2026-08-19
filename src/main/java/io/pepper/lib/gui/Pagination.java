@@ -49,4 +49,21 @@ public final class Pagination {
         final int index = window.startIndex() + slot;
         return index >= 0 && index < items.size() ? items.get(index) : null;
     }
+
+    /**
+     * 总页数：向上取整；空内容或非法页容量视为 1 页。
+     *
+     * <p>与两插件既有语义一致（PepperClaim {@code ClaimGuiModel.pageCount}、
+     * PepperUnion {@code PageGuide.reCalcMaxPage}），统一后插件可删除本地实现。</p>
+     *
+     * @param total 内容总数
+     * @param pageSize 每页容量
+     * @return 总页数（至少 1）
+     */
+    public static int pageCount(final int total, final int pageSize) {
+        if (total <= 0 || pageSize <= 0) {
+            return 1;
+        }
+        return (total + pageSize - 1) / pageSize;
+    }
 }

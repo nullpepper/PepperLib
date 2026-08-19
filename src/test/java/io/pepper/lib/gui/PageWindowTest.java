@@ -87,4 +87,35 @@ class PageWindowTest {
     void constructorRejectsInconsistentStartIndex() {
         assertThrows(IllegalArgumentException.class, () -> new PageWindow(2, 5, 10, 5));
     }
+
+    // ------------------------------------------------------------------
+    // fromZeroBased：0-based 页码 → 1-based 窗口（插件适配层用）
+    // ------------------------------------------------------------------
+
+    @Test
+    void fromZeroBasedMapsFirstPage() {
+        final PageWindow window = PageWindow.fromZeroBased(0, 5, 10);
+        assertEquals(1, window.page());
+        assertEquals(0, window.startIndex());
+    }
+
+    @Test
+    void fromZeroBasedMapsLaterPage() {
+        final PageWindow window = PageWindow.fromZeroBased(2, 5, 10);
+        assertEquals(3, window.page());
+        assertEquals(20, window.startIndex());
+    }
+
+    @Test
+    void fromZeroBasedClampsNegativePageToFirstPage() {
+        final PageWindow window = PageWindow.fromZeroBased(-3, 5, 10);
+        assertEquals(1, window.page());
+    }
+
+    @Test
+    void fromZeroBasedClampsPageBeyondMaxToLastPage() {
+        final PageWindow window = PageWindow.fromZeroBased(99, 5, 10);
+        assertEquals(5, window.page());
+        assertEquals(40, window.startIndex());
+    }
 }

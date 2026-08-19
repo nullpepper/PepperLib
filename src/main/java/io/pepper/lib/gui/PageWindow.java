@@ -61,4 +61,19 @@ public record PageWindow(int page, int maxPage, int pageSize, int startIndex) {
     public boolean hasNext() {
         return this.page < this.maxPage;
     }
+
+    /**
+     * 从 0-based 页码创建窗口（插件适配层换算入口）。
+     *
+     * <p>PepperClaim 的 Holder 内部使用 0-based {@code pageIndex}；本工厂封装
+     * 0-based → 1-based 换算（{@code of(page + 1, maxPage, pageSize)}），
+     * 越界行为与 {@link #of} 一致（clamp）。</p>
+     *
+     * @param page 0-based 页码
+     * @param maxPage 总页数（1-based，即 {@code Pagination.pageCount} 的结果）
+     * @param pageSize 每页容量
+     */
+    public static PageWindow fromZeroBased(final int page, final int maxPage, final int pageSize) {
+        return of(page + 1, maxPage, pageSize);
+    }
 }
