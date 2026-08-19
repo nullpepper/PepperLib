@@ -119,7 +119,7 @@ public final class MigrationRunner {
      * {@code false}——绝不能对「可能仍处于活动事务」的连接调用
      * {@code setAutoCommit(true)}，否则 JDBC 会先提交半截迁移。
      */
-    private static boolean rollbackAndRestore(final Connection connection, final Throwable failure) {
+    static boolean rollbackAndRestore(final Connection connection, final Throwable failure) {
         try {
             connection.rollback();
         } catch (final SQLException rollbackFailure) {

@@ -4,6 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -231,5 +235,34 @@ class MigrationRunnerTest {
                 () -> new MigrationRunner(List.of(broken)).run(this.connection, new SqliteDialect(5000)));
         assertTrue(e.getMessage().contains("Failed to run database migrations"));
         assertTrue(e.getCause() instanceof SQLException);
+    }
+
+    // ------------------------------------------------------------------
+    // rollbackAndRestore 事务安全路径（自 PepperUnion MigrationRunnerTransactionTest 迁入）
+    // ------------------------------------------------------------------
+
+    @Test
+    void successfulRollbackRestoresAutoCommit() throws Exception {
+        final Connection connection = mock(Connection.class);
+        final SQLException failure = new SQLException("migration failed");
+
+        assertTrue(MigrationRunner.rollbackAndRestore(connection, failure));
+
+        verify(connection).rollback();
+        verify(connection).setAutoCommit(true);
+        verify(connection, never()).close();
+    }
+
+    @Test
+    void failedRollbackClosesConnectionAndNeverRestoresAutoCommit() throws Exception {
+        final Connection connection = mock(Connection.class);
+        final SQLException failure = new SQLException("migration failed");
+        doThrow(new SQLException("rollback failed")).when(connection).rollback();
+
+        assertFalse(MigrationRunner.rollbackAndRestore(connection, failure));
+
+        verify(connection).close();
+        verify(connection, never()).setAutoCommit(true);
+        assertTrue(failure.getSuppressed().length > 0);
     }
 }
