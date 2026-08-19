@@ -22,13 +22,47 @@ import org.junit.jupiter.api.Test;
 
 class MigrationRunnerTest {
 
+    /**
+     * 测试用 SQLite 方言（阶段 6.5 后 lib 不再提供方言实现：
+     * 测试自身作为 {@link SqlDialect} 接口的消费者，验证接口可用性）。
+     */
+    private static final class TestSqliteDialect implements SqlDialect {
+
+        @Override
+        public boolean isSqlite() {
+            return true;
+        }
+
+        @Override
+        public void onConnect(final Connection connection) throws SQLException {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("PRAGMA busy_timeout = 5000");
+                statement.execute("PRAGMA journal_mode = WAL");
+                statement.execute("PRAGMA foreign_keys = ON");
+            }
+        }
+
+        @Override
+        public boolean tableExists(final Connection connection, final String tableName) throws SQLException {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, tableName, null)) {
+                return rs.next();
+            }
+        }
+
+        @Override
+        public Class<? extends java.sql.Driver> driverClass() {
+            return org.sqlite.JDBC.class;
+        }
+    }
+
     private Connection connection;
+    private final SqlDialect dialect = new TestSqliteDialect();
 
     @BeforeEach
     void setUp() throws Exception {
         // 单连接内存库：连接关闭前数据库持续存在，事务语义与文件库一致。
         this.connection = DriverManager.getConnection("jdbc:sqlite::memory:");
-        new SqliteDialect(5000).onConnect(this.connection);
+        this.dialect.onConnect(this.connection);
     }
 
     @AfterEach
@@ -58,7 +92,7 @@ class MigrationRunnerTest {
     }
 
     private boolean tableExists(final String table) throws SQLException {
-        return new SqliteDialect(5000).tableExists(this.connection, table);
+        return this.dialect.tableExists(this.connection, table);
     }
 
     private int appliedCount(final String table) throws SQLException {
@@ -74,7 +108,7 @@ class MigrationRunnerTest {
                 simpleMigration(1, "first", "CREATE TABLE t1 (id INTEGER PRIMARY KEY)"),
                 simpleMigration(2, "second", "CREATE TABLE t2 (id INTEGER PRIMARY KEY)")));
 
-        runner.run(this.connection, new SqliteDialect(5000));
+        runner.run(this.connection, this.dialect);
 
         assertTrue(this.tableExists("t1"));
         assertTrue(this.tableExists("t2"));
@@ -86,8 +120,8 @@ class MigrationRunnerTest {
         final MigrationRunner runner =
                 new MigrationRunner(List.of(simpleMigration(1, "first", "CREATE TABLE t1 (id INTEGER PRIMARY KEY)")));
 
-        runner.run(this.connection, new SqliteDialect(5000));
-        runner.run(this.connection, new SqliteDialect(5000));
+        runner.run(this.connection, this.dialect);
+        runner.run(this.connection, this.dialect);
 
         assertEquals(1, this.appliedCount("schema_migrations"));
     }
@@ -127,7 +161,7 @@ class MigrationRunnerTest {
         final MigrationRunner runner = new MigrationRunner(
                 List.of(simpleMigration(1, "first", "CREATE TABLE t1 (id INTEGER PRIMARY KEY)")), "pepper_versions");
 
-        runner.run(this.connection, new SqliteDialect(5000));
+        runner.run(this.connection, this.dialect);
 
         assertEquals(1, this.appliedCount("pepper_versions"));
         assertFalse(this.tableExists("schema_migrations"));
@@ -156,8 +190,7 @@ class MigrationRunnerTest {
         };
 
         assertThrows(
-                StorageException.class,
-                () -> new MigrationRunner(List.of(failing)).run(this.connection, new SqliteDialect(5000)));
+                StorageException.class, () -> new MigrationRunner(List.of(failing)).run(this.connection, this.dialect));
 
         assertThrows(SQLException.class, () -> this.connection.createStatement().executeQuery("SELECT * FROM t1"));
         assertEquals(0, this.appliedCount("schema_migrations"));
@@ -175,7 +208,7 @@ class MigrationRunnerTest {
                 new MigrationRunner(List.of(simpleMigration(1, "first", "CREATE TABLE t1 (id INTEGER PRIMARY KEY)")));
 
         final StorageException e =
-                assertThrows(StorageException.class, () -> runner.run(this.connection, new SqliteDialect(5000)));
+                assertThrows(StorageException.class, () -> runner.run(this.connection, this.dialect));
         assertTrue(e.getMessage().contains("refusing to start"));
     }
 
@@ -207,7 +240,7 @@ class MigrationRunnerTest {
 
         final StorageException e = assertThrows(
                 StorageException.class,
-                () -> new MigrationRunner(List.of(declaresColumns)).run(this.connection, new SqliteDialect(5000)));
+                () -> new MigrationRunner(List.of(declaresColumns)).run(this.connection, this.dialect));
         assertTrue(e.getMessage().contains("missing required column"));
     }
 
@@ -231,8 +264,7 @@ class MigrationRunnerTest {
         };
 
         final StorageException e = assertThrows(
-                StorageException.class,
-                () -> new MigrationRunner(List.of(broken)).run(this.connection, new SqliteDialect(5000)));
+                StorageException.class, () -> new MigrationRunner(List.of(broken)).run(this.connection, this.dialect));
         assertTrue(e.getMessage().contains("Failed to run database migrations"));
         assertTrue(e.getCause() instanceof SQLException);
     }

@@ -19,6 +19,11 @@ class GuiPageContractTest {
         public io.pepper.lib.task.PepperScheduler scheduler() {
             throw new UnsupportedOperationException("not used in this test");
         }
+
+        @Override
+        public Inventory newInventory(final int rows, final String title) {
+            throw new UnsupportedOperationException("not used in this test");
+        }
     }
 
     private static final class RecordingPage implements GuiPage<String> {
