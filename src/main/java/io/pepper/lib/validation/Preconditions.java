@@ -3,7 +3,11 @@ package io.pepper.lib.validation;
 /**
  * 无业务含义的参数校验工具。
  *
- * <p>只放与业务无关的通用检查；金额、权限、领域约束等业务校验留在插件内。</p>
+ * <p>只放与业务无关的通用检查；金额、权限、领域约束等业务校验留在插件内。
+ * lib 内部类型（ConfirmEntry/ConfirmRegistry/GuiClick 等）已使用本类。</p>
+ *
+ * <p><b>Experimental（0.1.0）</b>：插件侧尚无直接消费者（新代码优先使用，
+ * 存量不强迁），API 可能在 0.2.x 调整。</p>
  */
 public final class Preconditions {
 

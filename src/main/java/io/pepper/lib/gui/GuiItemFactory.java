@@ -9,6 +9,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * 最小物品构造接口：业务页面用它构造展示物品，不直接拼装 Bukkit 元数据。
  *
+ * <p><b>Experimental（0.1.0）</b>：尚无插件消费者，API 可能在 0.2.x 调整；
+ * 两插件菜单迁移到 GuiPage 协议时渐进接入（计划 §4.1 清单项）。</p>
+ *
  * @see <a href="https://jd.papermc.io/paper/1.21/">Paper API</a>
  */
 @FunctionalInterface
