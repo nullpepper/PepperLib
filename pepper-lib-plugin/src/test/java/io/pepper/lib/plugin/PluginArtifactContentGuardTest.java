@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * 前置插件产物守卫（双模式重构文档 §9.2）：
- * PepperLib.jar 是服务器可加载插件——必须含 paper-plugin.yml 与主类；
+ * PepperLib.jar 是服务器可加载插件——必须含 plugin.yml 与主类；
  * 必须包含未 relocate 的 io.pepper.lib.*（前置模式契约核心）；
  * 不得携带任何消费者私有命名空间类。
  */
 class PluginArtifactContentGuardTest {
 
-    private static final Path JAR = Path.of("build/libs/PepperLib-0.2.0.jar");
+    private static final Path JAR = Path.of("build/libs/PepperLib-0.4.0.jar");
 
     private static Set<String> entries() throws IOException {
         try (ZipFile zip = new ZipFile(JAR.toFile())) {
@@ -31,7 +31,11 @@ class PluginArtifactContentGuardTest {
     void pluginJarIsALoadableFrontEndPlugin() throws IOException {
         assertTrue(Files.isRegularFile(JAR), "run ./gradlew shadowJar first (test task depends on it)");
         final Set<String> entries = entries();
-        assertTrue(entries.contains("paper-plugin.yml"), "plugin jar must carry paper-plugin.yml");
+        // 自适应加载（2025-08 决策）：只用 plugin.yml（api-version '1.18'）——
+        // paper-plugin.yml 在 Paper 26.x 有 api-version 下限校验（1.18 too old），
+        // 而 plugin.yml 的 '1.18' 在 1.18.2 ~ 26.x 全区间被接受。
+        assertTrue(entries.contains("plugin.yml"), "plugin jar must carry plugin.yml");
+        assertFalse(entries.contains("paper-plugin.yml"), "plugin jar must not carry paper-plugin.yml");
         assertTrue(entries.contains("io/pepper/lib/plugin/PepperLibPlugin.class"));
         assertTrue(entries.contains("io/pepper/lib/runtime/PepperLibRuntime.class"));
     }

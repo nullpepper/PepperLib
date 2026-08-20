@@ -1,17 +1,20 @@
 package io.pepper.lib.plugin;
 
 import io.pepper.lib.runtime.PepperLibRuntime;
+import java.util.Set;
 
 /**
  * 前置插件内置运行时服务实现：版本取自插件描述（单一来源），
- * 能力声明当前为空集（后续能力在此扩展）。
+ * 能力集由 {@link CapabilityResolver} 按服务器版本决策（自适应加载 §2.2）。
  */
 final class DefaultPepperLibRuntime implements PepperLibRuntime {
 
     private final String apiVersion;
+    private final Set<String> capabilities;
 
-    DefaultPepperLibRuntime(final String apiVersion) {
+    DefaultPepperLibRuntime(final String apiVersion, final Set<String> capabilities) {
         this.apiVersion = apiVersion;
+        this.capabilities = Set.copyOf(capabilities);
     }
 
     @Override
@@ -21,7 +24,7 @@ final class DefaultPepperLibRuntime implements PepperLibRuntime {
 
     @Override
     public boolean supports(final String capability) {
-        // 当前无能力声明；后续能力（如 "runtime" / "gui"）在此扩展。
-        return false;
+        // null 与未知能力一致返回 false（契约：未知/未声明能力不抛异常）。
+        return capability != null && this.capabilities.contains(capability);
     }
 }

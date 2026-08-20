@@ -1,5 +1,6 @@
 package io.pepper.lib.gui;
 
+import io.pepper.lib.runtime.MinMinecraftVersion;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -20,6 +21,7 @@ import org.bukkit.inventory.ItemStack;
  *
  * @param <S> 页面状态类型
  */
+@MinMinecraftVersion(value = "1.21", capability = "gui-host")
 public final class PageHolderAdapter<S> implements GuiHolder {
 
     private final GuiPage<S> page;

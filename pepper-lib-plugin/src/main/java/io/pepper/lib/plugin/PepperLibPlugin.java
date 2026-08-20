@@ -21,9 +21,23 @@ public class PepperLibPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // 版本单一来源：插件描述（paper-plugin.yml 经 Gradle 注入根项目 version）。
-        this.runtime = new DefaultPepperLibRuntime(this.getPluginMeta().getVersion());
+        // 版本单一来源：插件描述（plugin.yml 经 Gradle 注入根项目 version）。
+        // 能力集按服务器版本决策（自适应加载 §2.2）：低于 1.21 不声明 gui-host。
+        // getDescription()（远古 API）而非 getPluginMeta()（Paper 1.19.4+）——
+        // 低版本服务器（1.18.2）上没有 getPluginMeta。
+        final String minecraftVersion = Bukkit.getMinecraftVersion();
+        this.runtime = new DefaultPepperLibRuntime(
+                this.getDescription().getVersion(),
+                CapabilityResolver.resolve(
+                        minecraftVersion,
+                        CapabilityAnnotationScanner.scan(getClass().getClassLoader())));
         Bukkit.getServicesManager().register(PepperLibRuntime.class, this.runtime, this, ServicePriority.Normal);
+        if (!this.runtime.supports(PepperLibRuntime.CAP_GUI_HOST)) {
+            this.getLogger()
+                    .warning("服务器 " + minecraftVersion + " < 1.21：gui-host 特性已禁用"
+                            + "（InventoryView 在 1.20.x 为 class、1.21+ 为 interface，形态不兼容）；"
+                            + "消费者请查询 supports(\"gui-host\") 后跳过 GUI 功能");
+        }
         this.getLogger()
                 .info("PepperLib " + this.runtime.apiVersion()
                         + " 已启用（共享库前置；消费者经 ServicesManager 获取 PepperLibRuntime）");

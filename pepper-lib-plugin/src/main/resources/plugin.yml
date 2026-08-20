@@ -1,7 +1,7 @@
 name: PepperLib
 version: '${version}'
 main: io.pepper.lib.plugin.PepperLibPlugin
-api-version: '26.1'
+api-version: '1.18'
 load: STARTUP
 prefix: PepperLib
 description: Shared library front-end plugin for PepperUnion and PepperClaim (un-relocated io.pepper.lib.*).

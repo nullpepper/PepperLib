@@ -1,19 +1,19 @@
 # Doublecheck spec
 
 ## Goal
-将上一轮交付的 M1/M2/M5/M6/M7/L1/L2/L3 修复方案全部实施：lib 侧改动（ThreadGuard 实例化、reload 同步、tryParse 上限、失败日志、Preconditions 转正、package-info、CHANGELOG、javadoc 死链、CI 冒烟）并同步迁移 PepperClaim/PepperUnion 的 ThreadGuard 调用点，三仓库验证通过。
+从 PepperBotBindManager 提取两块通用能力进 PepperLib 0.4.0：① 新增 io.pepper.lib.verification.OneTimeCodeService&lt;T&gt;（一次性验证码服务：issue/consume 原子消费/冷却/TTL 清理/设置热替换）；② io.pepper.lib.storage 新增纯 JDK 的 SqlExceptions（唯一冲突/繁忙分类）与 JdbcRetry（有限退避重试）；BindManager 同步改造为委托（VerificationManager 内部委托 OneTimeCodeService，BindManagerImpl 改用 SqlExceptions/JdbcRetry），PepperLib 版本升 0.4.0 且 BindManager 依赖与 REQUIRED_PEPPERLIB_API 同步改 0.4，两仓库构建与测试全绿。
 
 ## Scope
-PepperLib 仓库：task/ThreadGuard.java 实例化改造（保留 deprecated 静态委托壳）、i18n/LanguageBundle.java reload 同步、money/Amounts.java tryParse 长度上限、papi/PapiExpansionSupport.java 失败日志、validation/Preconditions.java 去 Experimental、9 个包 package-info.java、README.md 定位与 API 表格、CHANGELOG.md 新建、.github/workflows/ci.yml 消费者冒烟 job、全部相关测试更新。PepperClaim 与 PepperUnion 仓库：ThreadGuard 静态调用点迁移为实例注入（组合根字段 + 静态访问器），其余不动。
+PepperLib：新增 io.pepper.lib.verification 包（OneTimeCodeService&lt;T&gt;、内部 CodeGenerator/Cooldown 实现、VerificationSettings 等价设置记录）；storage 包新增 SqlExceptions、JdbcRetry；版本 0.3.0→0.4.0（artifact + apiVersion 同步）；japicmp baseline 0.2.0 不变；新增/随迁测试（含一次性消费与冷却并发断言）；CHANGELOG 或文档提及。BindManager：VerificationManager 改造为委托壳（全部公共方法签名与行为不变：createGameInitiatedRequest/createQQInitiatedRequest/createWhitelistRequest/matchCode/restoreCode/getPendingForPlayer/removePendingForPlayer/isOnCooldown/getCooldownRemainingSeconds/cleanupExpired）；BindManagerImpl 用 SqlExceptions/JdbcRetry 替换私有 isUniqueViolation/isBusyViolation/withConnectionRetry；依赖 io.pepper:pepper-lib 0.3.0→0.4.0；REQUIRED_PEPPERLIB_API 0.3→0.4；测试随迁与保留。JdbcPool/HikariCP 不进库（维持阶段 6.5 边界），DatabaseManager 池逻辑不改；不提取 PendingBindManager/生命周期/命令/监听器；不改 pepperbot-api/core 契约。
 
 ## Acceptance criteria
-① lib `./gradlew check` 全绿（162 tests，spotless/javadoc 过）；② M1：ThreadGuard 实例 API + 静态 deprecated 委托壳，ThreadGuardTest 覆盖实例隔离与静态壳委托，两插件全部调用点迁移且各自 build 通过；③ M7：reload synchronized + 并发回归测试绿；④ L1：tryParse 长度上限 + 测试绿；⑤ L2：注册失败输出 warning；⑥ M5：Preconditions 转正 + README 同步；⑦ M2：9 个 package-info + README 生态边界行；⑧ M6：CHANGELOG、javadoc 无仓库路径引用（grep 清零）、CI 消费者冒烟 job；japicmp 因无发布基线记录为「0.1.0 发布后接入」；⑨ L3：ConfirmRegistry 登记前惰性清扫 + 测试绿。
+1) PepperLib `./gradlew clean check` BUILD SUCCESSFUL（新增 OneTimeCodeService/SqlExceptions/JdbcRetry 测试全部通过，japicmp 无破坏性 diff）；2) `./gradlew publishToMavenLocal` 产出 io.pepper:pepper-lib:0.4.0，apiElements/runtimeElements 仍声明 org.gradle.jvm.version=17；3) BindManager `./gradlew clean build` 绿（21+ 测试 0 失败），shadow jar 内 io/pepper/lib 计数=0、不再包含 com.zaxxer.hikari（BindManager 侧池代码未动则不强制）；4) VerificationManager 全部原测试（含 BindManagerImplAsyncTest/ConflictTest/GuardTest 与 VerificationManagerConcurrencyTest）在改造后仍绿；OneTimeCodeService 在 PepperLib 侧有等价并发断言（同码并发只成功一次、冷却原子性、过期清理、restore 语义由 BindManager 测试覆盖）；5) BindManager build.gradle 依赖 0.4.0 且 REQUIRED_PEPPERLIB_API="0.4"。
 
 ## Failure modes
-① ThreadGuard 静态壳与实例并存 → 壳仅作 deprecated 委托到进程级默认实例，测试覆盖两者语义一致；② 插件坐标依赖 0.1.0 → 先 publishToMavenLocal 再构建插件；③ 插件构建失败 → 记录原因并修复至编译通过（本任务必须三仓库全绿）；④ L2 日志不可断言 → 代码审查验收；⑤ javadoc gate 对 package-info 格式要求 → 按规范；⑥ 并发测试脆弱 → 回归保护测试 + synchronized 语义审查。
+泛型化导致行为回归（冷却原子性/一次性消费/过期清理/白名单码复用）→ 由随迁与保留测试红绿证明；JdbcPool 未提取故无 hikari 类加载问题；BindManager 在 0.3 runtime 上启动（校验 0.4 前缀不匹配）→ 现有 verifyPepperLibRuntime 逻辑输出 severe 并 disablePlugin；japicmp 新增包/类视为兼容，若配置报错则调整 onlyIf 或忽略规则；spotless 格式失败 → spotlessApply 后重跑；mavenLocal 缓存旧 0.3.0 → publishToMavenLocal --rerun-tasks 覆盖。
 
 ## Priorities
-三仓库编译/测试全绿优先；M1 兼容壳优先于彻底删除静态 API（0.1.x 政策）；跨仓库改动面最小化（调用点机械替换，不改业务逻辑）。
+行为零回归 > API 简洁（OneTimeCodeService 泛型单类职责）> 测试随迁完整性；JdbcPool 提取明确不做（rule of three，等待第二个消费者）；文档更新为次要但 CHANGELOG 建议补一条；VerificationManager 对外签名不变优先于内部实现优雅度。
 
 ## Non-goals
-不发布到 Maven（mavenLocal 之外）；不接入 japicmp（无基线，待 0.1.0 发布后）；不做插件侧定时清扫 op（采用 register 惰性清扫）；不改两插件业务代码；不做性能优化。
+不把 HikariCP/连接池工厂带回 PepperLib（不逆转阶段 6.5）；不提取 PendingBindManager、插件生命周期、命令/监听器、GroupMessageListener；不改 pepperbot-api/pepperbot-core 任何契约；不改 VerificationManager/BindManagerImpl 公共签名；不做真实服务器 smoke（验收=构建+测试）；不迁移 Messages 等已交付功能；不改 DatabaseManager 的池配置逻辑。

@@ -12,7 +12,17 @@ package io.pepper.lib.runtime;
 public interface PepperLibRuntime {
 
     /**
-     * 前置插件提供的 PepperLib API 版本（如 {@code "0.2.0"}，与发布坐标版本一致）。
+     * gui-host 特性能力名（{@code GuiHolder} / {@code GuiHost} / {@code PageHolderAdapter}）。
+     *
+     * <p>低版本服务器（{@code Bukkit.getMinecraftVersion()} &lt; 1.21，{@code InventoryView}
+     * 接口化之前）不声明此能力：这些类的公共签名引用 {@code InventoryView}，而该类型
+     * 在 1.20.x 为 class、1.21+ 为 interface——形态不匹配的运行时执行会抛
+     * {@code IncompatibleClassChangeError}。消费者必须查询本能力后再决定是否启用 gui-host。</p>
+     */
+    String CAP_GUI_HOST = "gui-host";
+
+    /**
+     * 前置插件提供的 PepperLib API 版本（如 {@code "0.3.0"}，与发布坐标版本一致）。
      *
      * @return 版本号字符串
      */

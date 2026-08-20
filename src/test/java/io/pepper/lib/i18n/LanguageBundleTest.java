@@ -158,7 +158,7 @@ class LanguageBundleTest {
         bundle.reload();
         assertEquals(
                 "Hello, Bob!",
-                plain(bundle.formatForPlayer(player(Locale.of("en", "US")), "greeting", kv("name", "Bob"))));
+                plain(bundle.formatForPlayer(player(new Locale("en", "US")), "greeting", kv("name", "Bob"))));
         assertEquals(
                 "Hello, Bob!", plain(bundle.formatForPlayer(player(Locale.ENGLISH), "greeting", kv("name", "Bob"))));
         assertEquals("你好，Bob！", plain(bundle.formatForPlayer(player(Locale.FRANCE), "greeting", kv("name", "Bob"))));

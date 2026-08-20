@@ -6,6 +6,60 @@ All notable changes to PepperLib are documented here. Format follows
 
 ## [Unreleased]
 
+### 新增
+
+- **一次性验证码服务** `io.pepper.lib.verification.OneTimeCodeService`（源自
+  PepperBotBindManager `VerificationManager` 提取，0.4.0）：
+  - 泛型负载 `issue(payload, ttl)` / `consume(code)`（原子消费，并发同码只成功一次）/
+    `peek`（非破坏性查看）/ `restore`（失败回滚放回）/ 每键冷却（`tryAcquireCooldown`
+    原子获取 + `putCooldown` 无条件重置）/ `cleanupExpired` / 设置热替换
+    （`updateSettings`，进行中验证码与冷却不丢失）；码长 [4,8]、秒数钳位。
+  - `OneTimeCodeServiceConcurrencyTest` 随迁（同码并发单胜者、冷却单放行）。
+- **JDBC 工具** `io.pepper.lib.storage`（源自 BindManagerImpl 提取，纯 JDK 零依赖）：
+  - `SqlExceptions`：唯一键冲突（SQLState 23xxx / 消息兜底）与 transient busy
+    （errorCode 5 / sqlite_busy / database is locked）分类；
+  - `JdbcRetry.withConnectionRetry`：有限次退避重试（只重试 busy，唯一键冲突
+    立即上抛；默认 3 次 / 50ms，可自定义）。
+
+- **自适应加载**（docs/pepperlib-dual-loading-and-consumer-migration.md §4.1）：
+  - `io.pepper.lib.runtime.ServerVersions`：服务器版本解析/比较纯函数——新旧格式
+  - `PepperLibRuntime.CAP_GUI_HOST`（`"gui-host"`）能力常量：前置插件 `onEnable`
+    按 `Bukkit.getMinecraftVersion()` 自动决策能力集（plugin 包内 `CapabilityResolver`
+    纯函数）；低于 1.21 的服务器不声明 gui-host 并输出 warning——`GuiHolder` /
+    `GuiHost` / `PageHolderAdapter` 的公共签名引用 `InventoryView`（1.20.x 为 class、
+    1.21+ 为 interface，形态不匹配的运行时执行抛 `IncompatibleClassChangeError`）。
+  - 前置插件描述符 `paper-plugin.yml` → `plugin.yml`（`api-version: '1.18'`）：
+    Paper 26.x 对 paper-plugin.yml 有 api-version 下限校验（`1.18 too old`），
+    plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被真实服务器验证可加载。
+  - `onEnable` 改用 `getDescription().getVersion()`（`getPluginMeta()` 是 Paper
+    1.19.4+ API，1.18.2 上不存在）。
+  - CI 新增 `legacy-consumer-paper-smoke` job：Paper 1.18.2 + Java 17 真实服务器
+    验证自适应加载（`scripts/paper-smoke.sh legacy` 模式）。
+  - **注解驱动能力决策**：新增 `io.pepper.lib.runtime.MinMinecraftVersion` 类级注解
+    （`value` 最低版本 + `capability` 能力名，只表达下限）；`GuiHolder` /
+    `GuiHost` / `PageHolderAdapter` 标注 `@MinMinecraftVersion("1.21", "gui-host")`；
+    前置插件 `CapabilityAnnotationScanner` 扫描 classpath（jar/目录两种形态，零依赖）
+    聚合「能力 → 最低版本」注册表，`CapabilityResolver` 改为注册表遍历决策——
+    新增特性只需贴注解，不再改决策代码；消费者 `supports("gui-host")` 契约不变。
+    守卫测试（`MinMinecraftVersionGuardTest`）断言 gui-host 三类注解存在且阈值一致。
+
+### 变更
+
+- 版本 0.3.0 → 0.4.0（前置插件 apiVersion 与发布坐标同步，单一来源根项目
+  version）；BindManager 依赖与 `REQUIRED_PEPPERLIB_API` 同步升级 0.4。
+
+### 构建
+
+- 构建基础设施集中化：`gradle/libs.versions.toml` 版本目录 + `buildSrc` 约定插件
+  （`pepper.java-conventions`：toolchain 25 / `--release` 17 / 依赖解析 JVM 属性钉回 /
+  公共仓库 / JUnit5；`pepper.spotless`：importOrder + palantirJavaFormat）——
+  三个子项目 `build.gradle.kts` 去重，依赖与插件版本单一来源（升级只改目录一处）。
+- `japicmp` 二进制兼容门纳入 `./gradlew check` 绿门：基线默认 mavenLocal 上一发布
+  版本（0.2.0），`PEPPER_LIB_BASELINE_JAR` 可覆盖；基线 jar 缺失时跳过并告警
+  （fresh 环境/CI 无本地发布历史）。
+- 新增 `BuildInfraGuardTest` 守卫测试：`check` 必须依赖 `japicmp`；三个构建文件
+  不得散落硬编码版本。
+
 ## [0.2.0] - 2026-08-20
 
 ### 新增

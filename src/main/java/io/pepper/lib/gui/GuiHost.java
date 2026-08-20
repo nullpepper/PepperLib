@@ -1,5 +1,6 @@
 package io.pepper.lib.gui;
 
+import io.pepper.lib.runtime.MinMinecraftVersion;
 import io.pepper.lib.task.PepperScheduler;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +31,7 @@ import org.bukkit.plugin.Plugin;
  *
  * <p>改编自 PluginBase modules/gui（MIT, © 2024 人間工作）。</p>
  */
+@MinMinecraftVersion(value = "1.21", capability = "gui-host")
 public final class GuiHost implements Listener {
 
     private final Plugin plugin;

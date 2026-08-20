@@ -14,15 +14,39 @@ PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
     （`load: BEFORE`），启动时经 `ServicesManager` 校验 `PepperLibRuntime`。
   - **shade 模式**：第三方消费者以普通库坐标 + shadow relocate 到私有命名空间，
     不安装前置插件（示例见 `pepper-lib-shaded-example`）。
-- **生态边界**：仅面向 Paper 1.21+ 生态（API 26.1 基线）。`gui` / `confirm` / `i18n` /
+- **生态边界**：编译基线 Paper API 26.1（Java 17 字节码）；**自适应加载**：前置插件
+  在旧版 Paper 服务器（1.18.2 ~ 1.20.6）可正常加载，自动禁用 gui-host 能力
+  （详见下方「低版本服务器支持」）。
+  `gui` / `confirm` / `i18n` /
   `economy` / `papi` / `task` 的公共签名耦合 Bukkit 类型；`money` / `validation` / `storage`
   为纯 Java 模块（详见各包 `package-info` 耦合度标注）。
 
-## 内容（公共 API，0.2.0）
+## 低版本服务器支持（自适应加载）
+
+- **检测与决策**：前置插件 `onEnable` 扫描 classpath 中 `io.pepper.lib` 类的
+  `@MinMinecraftVersion` 类级注解（`io.pepper.lib.runtime.MinMinecraftVersion`），
+  聚合出「能力 → 最低版本」注册表，再用 `Bukkit.getMinecraftVersion()`（纯版本号，
+  新旧格式 `1.18.2` / `26.1.2` 统一由 `io.pepper.lib.runtime.ServerVersions` 数值比较）
+  决策能力集——新增特性只需给类贴注解，无需改决策代码。
+- **能力**：`PepperLibRuntime.supports("gui-host")`——低于 1.21 的服务器不声明此能力
+  （`GuiHolder` / `GuiHost` / `PageHolderAdapter` 标注
+  `@MinMinecraftVersion("1.21", "gui-host")`；其公共签名引用 `InventoryView`，
+  该类型在 1.20.x 为 class、1.21+ 为 interface，形态不匹配的运行时执行会抛
+  `IncompatibleClassChangeError`）；`PageWindow` / `Pagination` / `GuiEventGuards` 等
+  其余 gui 类型、task / confirm / i18n / economy / papi / storage / money / validation
+  全部不受影响。
+- **消费者契约**：低版本服务器上，消费者必须查询 `supports("gui-host")` 后再决定
+  是否创建/注册 `GuiHost` 监听器与实现 `GuiHolder`；不查询直接调用会在执行期崩溃
+  （消费者自担）。
+- **描述符**：前置插件使用 `plugin.yml`（`api-version: '1.18'`）而非 `paper-plugin.yml`
+  ——Paper 26.x 对 paper-plugin.yml 有 api-version 下限校验（1.18 too old），而
+  plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被接受（真实服务器验证）。
+
+## 内容（公共 API，0.4.0）
 
 | 包 | 类型 | 状态 |
 |---|---|---|
-| `io.pepper.lib.runtime` | `PepperLibRuntime` | 前置插件经 ServicesManager 注册的稳定运行时服务（版本/能力诊断） |
+| `io.pepper.lib.runtime` | `PepperLibRuntime` / `ServerVersions` / `MinMinecraftVersion` | 前置插件经 ServicesManager 注册的稳定运行时服务（版本/能力诊断）；类级最低版本声明注解 |
 | `io.pepper.lib.task` | `PepperScheduler` / `BukkitPepperScheduler` / `ThreadGuard`(Instance) | 已接入（两插件） |
 | `io.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
 | `io.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` / `GuiHost` | 已接入（两插件 GUI） |
@@ -39,12 +63,14 @@ PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
 - **0.1.x**：只做兼容修复（bug、文档、内部实现调整）；不新增 API、不破坏签名。
 - **0.2.x**：可新增 API；可调整 Experimental API；已接入 API 的破坏性变更需迁移指南。
 - **1.0.0**：全部已接入 API 冻结为稳定契约；Experimental 项收敛（接入或删除）。
-- 二进制兼容由 japicmp 任务守护（基线 = 上一发布版本，见 `build.gradle.kts`）。
+- 二进制兼容由 japicmp 任务守护（基线 = 上一发布版本，见 `build.gradle.kts`）；
+  已纳入 `./gradlew check` 绿门——基线 jar 缺失时跳过并告警（fresh 环境/CI 无本地
+  发布历史），发布后可用 `PEPPER_LIB_BASELINE_JAR` 指向上一版本产物使其生效。
 
 ## 构建
 
 ```bash
-./gradlew check              # 测试 + spotless + javadoc + 产物守卫（绿门）
+./gradlew check              # 测试 + spotless + javadoc + 产物守卫 + japicmp（绿门）
 ./gradlew :pepper-lib-plugin:shadowJar          # 前置插件 PepperLib.jar
 ./gradlew :pepper-lib-shaded-example:shadowJar  # shade 示例消费者
 bash scripts/paper-smoke.sh thin               # 真实 Paper 三件套启动 smoke
@@ -53,6 +79,8 @@ bash scripts/paper-smoke.sh shaded             # 真实 Paper shade 模式 smoke
 ```
 
 - Java 25 toolchain（GraalVM CE，见 `gradle.properties`）。
+- 构建约定集中在 `buildSrc`（`pepper.java-conventions` / `pepper.spotless`）；
+  依赖/插件版本单一来源 `gradle/libs.versions.toml`（升级只改目录一处）。
 - Spotless palantirJavaFormat 与两插件一致；javadoc 纳入 `check` 防文档腐化。
 - TDD 纪律：所有行为改动先红后绿。
 - CI：`library-check`（构建+守卫）+ `thin-consumer-paper-smoke` + `shaded-consumer-paper-smoke`。

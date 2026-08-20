@@ -129,6 +129,26 @@ public interface PepperLibRuntime {
 - 不恢复全局静态状态共享。
 - PlaceholderAPI 和 Vault 仍然是可选能力，PepperLib 前置插件在它们缺失时必须能够启动。
 
+### 4.1 低版本服务器支持（自适应加载）
+
+**背景**：`org.bukkit.inventory.InventoryView` 在 MC 1.21 从 class 改为 interface（双向
+二进制不兼容）。lib 按 Paper API 26.1 编译的 gui-host 类型（`GuiHolder` / `GuiHost` /
+`PageHolderAdapter`）公共签名引用它——在 1.20.x 服务器上「能加载，但执行相关指令抛
+`IncompatibleClassChangeError`」。
+
+**检测**：前置插件 `onEnable` 用 `Bukkit.getMinecraftVersion()`（纯版本号；旧格式
+`1.18.2` 与年份式 `26.1.2` 统一由 `io.pepper.lib.runtime.ServerVersions` 解析为
+`[major, minor, patch]` 数值数组后字典序比较）判断是否达到阈值 `[1,21,0]`。
+
+**能力声明**：`DefaultPepperLibRuntime` 携带 `CapabilityResolver`（plugin 包内纯函数）
+按版本决策的能力集；低于 1.21 的服务器不声明 `PepperLibRuntime.CAP_GUI_HOST`
+（`"gui-host"`），并在启动日志输出 warning。消费者必须查询
+`runtime.supports(PepperLibRuntime.CAP_GUI_HOST)` 后再决定是否启用 GUI 功能。
+
+**描述符**：前置插件使用 `plugin.yml`（`api-version: '1.18'`）而非 `paper-plugin.yml`
+——Paper 26.x 对 paper-plugin.yml 有 api-version 下限校验（`1.18.0 is too old for a
+paper plugin`），而 plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被真实服务器验证可加载。
+
 ## 5. 前置模式下的消费者契约
 
 PepperClaim 和 PepperUnion 的 Gradle 依赖保持为：

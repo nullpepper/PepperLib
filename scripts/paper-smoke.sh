@@ -1,16 +1,31 @@
 #!/usr/bin/env bash
-# 真实 Paper 服务器启动 smoke（双模式重构文档 §9.3 / §9.4）。
+# 真实 Paper 服务器启动 smoke（双模式重构文档 §9.3 / §9.4；自适应加载 §4.1）。
 #
-#   thin   : PepperLib.jar + PepperClaim.jar + PepperUnion.jar 三件套（前置模式）
-#   shaded : 仅 ShadedExample.jar（shade 模式，无前置插件）
+#   thin   : PepperLib.jar + PepperClaim.jar + PepperUnion.jar 三件套（前置模式，最新 Paper）
+#   shaded : 仅 ShadedExample.jar（shade 模式，无前置插件，最新 Paper）
+#   legacy : 仅 PepperLib.jar（前置插件，Paper 1.18.2 最低支持版本；验证自适应加载）
 #
-# 用法：bash scripts/paper-smoke.sh <thin|shaded> [workdir]
+# 用法：bash scripts/paper-smoke.sh <thin|shaded|legacy> [workdir]
 set -euo pipefail
 
 MODE="${1:-thin}"
 WORK="${2:-$(mktemp -d)}"
-PAPER_VERSION="26.1.2"
-PAPER_BUILD="74"
+
+case "$MODE" in
+  thin|shaded)
+    PAPER_VERSION="26.1.2"
+    PAPER_BUILD="74"
+    ;;
+  legacy)
+    # 最低支持版本（api-version '1.18' 的 plugin.yml 在此版本首验）。
+    PAPER_VERSION="1.18.2"
+    PAPER_BUILD="388"
+    ;;
+  *)
+    echo "unknown mode: $MODE (thin|shaded|legacy)" >&2
+    exit 2
+    ;;
+esac
 
 echo "::group::paper-smoke ($MODE)"
 echo "workdir: $WORK"
@@ -36,14 +51,23 @@ EOF
 rm -rf "$WORK/world" "$WORK/world_nether" "$WORK/world_the_end" "$WORK/plugins"/*.jar 2>/dev/null || true
 mkdir -p "$WORK/plugins"
 
+# 复制最新的构建产物（build/libs 可能残留旧版本 jar——Gradle 不清理，
+# glob 全复制会导致服务器加载旧版本；取最新一个）。
+latest_jar() {
+  ls -t "$1"/build/libs/"$2"-*.jar 2>/dev/null | head -1
+}
+
 case "$MODE" in
   thin)
-    cp pepper-lib-plugin/build/libs/PepperLib-*.jar "$WORK/plugins/"
+    cp "$(latest_jar pepper-lib-plugin PepperLib)" "$WORK/plugins/"
     cp consumers/PepperClaim/build/libs/PepperClaim-*.jar "$WORK/plugins/"
     cp consumers/PepperUnion/build/libs/PepperUnion.jar "$WORK/plugins/"
     ;;
   shaded)
-    cp pepper-lib-shaded-example/build/libs/ShadedExample-*.jar "$WORK/plugins/"
+    cp "$(latest_jar pepper-lib-shaded-example ShadedExample)" "$WORK/plugins/"
+    ;;
+  legacy)
+    cp "$(latest_jar pepper-lib-plugin PepperLib)" "$WORK/plugins/"
     ;;
   *)
     echo "unknown mode: $MODE" >&2
@@ -82,20 +106,31 @@ echo "-- server started"
 
 case "$MODE" in
   thin)
-    grep -q "Enabling PepperLib v0.2.0" "$WORK/server.log" \
+    grep -q "Enabling PepperLib" "$WORK/server.log" \
       || { echo "!! PepperLib was not enabled"; tail -40 "$WORK/server.log"; exit 1; }
-    grep -q "PepperLib 0.2.0 已启用" "$WORK/server.log" \
+    grep -q "已启用（共享库前置" "$WORK/server.log" \
       || { echo "!! PepperLib onEnable did not run"; tail -40 "$WORK/server.log"; exit 1; }
     grep -q "Enabling PepperClaim" "$WORK/server.log" \
       || { echo "!! PepperClaim was not enabled"; tail -40 "$WORK/server.log"; exit 1; }
     grep -q "Enabling PepperUnion" "$WORK/server.log" \
       || { echo "!! PepperUnion was not enabled"; tail -40 "$WORK/server.log"; exit 1; }
+    # 最新 Paper（≥1.21）：gui-host 必须可用，不得出现禁用 warning。
+    if grep -q "gui-host 特性已禁用" "$WORK/server.log"; then
+      echo "!! gui-host must be available on latest Paper"; exit 1
+    fi
     ;;
   shaded)
     grep -q "Enabling ShadedExample" "$WORK/server.log" \
       || { echo "!! ShadedExample was not enabled"; tail -40 "$WORK/server.log"; exit 1; }
     grep -q "ShadedExample: shaded-ok" "$WORK/server.log" \
       || { echo "!! relocated PepperLib usage did not work"; tail -40 "$WORK/server.log"; exit 1; }
+    ;;
+  legacy)
+    grep -q "Enabling PepperLib" "$WORK/server.log" \
+      || { echo "!! PepperLib was not enabled on legacy Paper"; tail -40 "$WORK/server.log"; exit 1; }
+    # 低版本（<1.21）：gui-host 必须被检测并禁用（自适应加载核心断言）。
+    grep -q "gui-host 特性已禁用" "$WORK/server.log" \
+      || { echo "!! gui-host was not disabled on legacy Paper"; tail -40 "$WORK/server.log"; exit 1; }
     ;;
 esac
 

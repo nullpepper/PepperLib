@@ -1,28 +1,22 @@
 plugins {
+    id("pepper.java-conventions")
+    id("pepper.spotless")
     `java-library`
     `maven-publish`
-    id("com.diffplug.spotless") version "8.9.0"
-    // 二进制兼容门：0.2.x 允许新增 API，不允许删除/签名变更（japicmp 基线见下）。
-    id("me.champeau.gradle.japicmp") version "0.4.5"
+    alias(libs.plugins.japicmp)
 }
 
 group = "io.pepper"
-version = "0.2.0"
+version = "0.4.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
     withSourcesJar()
     withJavadocJar()
 }
 
+// papermc + mavenCentral 由 pepper.java-conventions 提供；根项目额外仓库：
 repositories {
-    maven {
-        name = "papermc"
-        url = uri("https://repo.papermc.io/repository/maven-public/")
-    }
     maven {
         name = "extendedclip"
         url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/")
@@ -31,54 +25,39 @@ repositories {
         name = "jitpack"
         url = uri("https://jitpack.io")
     }
-    mavenCentral()
 }
 
 dependencies {
     // Paper API 仅编译期：PepperLib 不打包 Bukkit/Paper 类型，由插件运行时提供。
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
-    compileOnly("org.jetbrains:annotations:26.0.1")
+    compileOnly(libs.paper.api)
+    compileOnly(libs.jetbrains.annotations)
     // PAPI 仅编译期软依赖（i18n PapiPlaceholderResolver / papi PapiExpansionSupport）：
     // 不打包、不传递；运行时由插件提供。
-    compileOnly("me.clip:placeholderapi:2.11.6")
+    compileOnly(libs.placeholderapi)
     // Vault 仅编译期软依赖（economy VaultSupport）：不打包、不传递；运行时由插件提供。
-    compileOnly("com.github.MilkBowl:VaultAPI:1.7") {
+    compileOnly(libs.vault.api) {
         exclude(group = "org.bukkit", module = "bukkit")
     }
     // 阶段 6.5 收敛：方言实现（SqliteDialect/MariaDbDialect）与 ConnectionPoolFactory
     // 已删除（零消费者），HikariCP 与驱动类字面量不再需要——消费方插件各自提供。
 
-    testImplementation(platform("org.junit:junit-bom:5.11.4"))
-    testImplementation("org.junit.jupiter:junit-jupiter")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.mockito:mockito-core:5.23.0")
-    testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
-    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.paper.api)
+    testImplementation(libs.mockbukkit)
     // PAPI 测试同版本（与 Union 一致）：验证 jar 在场但未注册扩展的路径。
-    testImplementation("me.clip:placeholderapi:2.11.6")
+    testImplementation(libs.placeholderapi)
     // Vault 测试同版本（与 Union 一致）：ServicesManager 注册/解析路径。
-    testImplementation("com.github.MilkBowl:VaultAPI:1.7") {
+    testImplementation(libs.vault.api) {
         exclude(group = "org.bukkit", module = "bukkit")
     }
     // 迁移框架测试使用内存 SQLite（DriverManager 按 jdbc url 加载驱动）。
-    testImplementation("org.xerial:sqlite-jdbc:3.46.1.0")
-}
-
-spotless {
-    java {
-        // 与 PepperClaim / PepperUnion 保持一致：静态导入优先，随后单一字母序块。
-        importOrder("\\#", "")
-        palantirJavaFormat("2.97.0")
-        target("src/**/*.java")
-    }
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
+    testImplementation(libs.sqlite.jdbc)
 }
 
 tasks.test {
-    useJUnitPlatform()
     // 产物守卫测试（ArtifactContentGuardTest）读取 pepper-lib JAR。
     dependsOn(tasks.jar)
 }
@@ -112,16 +91,18 @@ publishing {
     }
 }
 
-// 二进制兼容门（发布面，§10）：基线 = 上一发布版本坐标（默认 mavenLocal 的 0.1.0，
-// 可用环境变量 PEPPER_LIB_BASELINE_JAR 覆盖）。0.2.x 允许新增 API，禁止删除/
-// 签名变更（0.1.0 之后发布的版本逐步接入 CI）。
+// 二进制兼容门（发布面，§10）：基线 = 上一发布版本坐标（默认 mavenLocal 的 0.2.0，
+// 可用环境变量 PEPPER_LIB_BASELINE_JAR 覆盖；发布新版本后更新默认值）。
+// 已纳入 check（绿门）；基线 jar 缺失时跳过并告警（fresh 环境/CI 无本地发布历史）——
+// 接入远程发布后，CI 经 PEPPER_LIB_BASELINE_JAR 提供上一版本产物即自动生效。
 val japicmpBaseline =
     providers.environmentVariable("PEPPER_LIB_BASELINE_JAR")
-        .orElse("${System.getProperty("user.home")}/.m2/repository/io/pepper/pepper-lib/0.1.0/pepper-lib-0.1.0.jar")
+        .map(::file)
+        .orElse(file("${System.getProperty("user.home")}/.m2/repository/io/pepper/pepper-lib/0.2.0/pepper-lib-0.2.0.jar"))
 
 val japicmp = tasks.register<me.champeau.gradle.japicmp.JapicmpTask>("japicmp") {
     group = "verification"
-    description = "与上一发布版本（0.1.0）做二进制兼容性比较；破坏性变更即失败。"
+    description = "与上一发布版本（0.2.0）做二进制兼容性比较；破坏性变更即失败。"
     oldClasspath = files(japicmpBaseline)
     newClasspath = files(tasks.jar)
     // 外部依赖类型（Paper/PAPI/Vault 为 compileOnly）不参与比较；只分析库自身 API。
@@ -129,4 +110,19 @@ val japicmp = tasks.register<me.champeau.gradle.japicmp.JapicmpTask>("japicmp") 
     onlyModified = true
     failOnModification = false // 允许新增 API（0.2.x 政策）
     // failOnBinaryIncompatibleModification 默认 true：删除/签名变更即失败。
+    onlyIf {
+        val baseline = japicmpBaseline.get()
+        if (!baseline.exists()) {
+            logger.warn(
+                    "japicmp: 基线 jar 不存在（" + baseline + "），跳过二进制兼容比较；"
+                            + "本地发布上一版本后即自动生效，或设置 PEPPER_LIB_BASELINE_JAR 指向上一版本产物。")
+            false
+        } else {
+            true
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("japicmp"))
 }

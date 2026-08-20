@@ -1,5 +1,6 @@
 package io.pepper.lib.gui;
 
+import io.pepper.lib.runtime.MinMinecraftVersion;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryAction;
@@ -19,6 +20,7 @@ import org.bukkit.inventory.ItemStack;
  * {@code belongsTo}/{@code touchesTop} 守卫后把 Bukkit 点击转换成
  * {@link GuiClick} 语义（8 参 onClick 由实现方决定是否进一步转换）。</p>
  */
+@MinMinecraftVersion(value = "1.21", capability = "gui-host")
 public interface GuiHolder extends InventoryHolder {
 
     /** 正在预览界面的玩家。 */

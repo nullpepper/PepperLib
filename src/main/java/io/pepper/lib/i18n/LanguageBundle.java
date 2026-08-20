@@ -314,7 +314,9 @@ public final class LanguageBundle {
 
     private static Locale toLocale(final String name) {
         final String[] parts = name.split("_");
-        return parts.length > 1 ? Locale.of(parts[0], parts[1]) : Locale.of(parts[0]);
+        // Java 17 字节码基线（2025-08 决策）：Locale.of 是 JDK 19+ API，
+        // 其实现即调用本构造器，语义等价；release 17 下构造器无弃用警告。
+        return parts.length > 1 ? new Locale(parts[0], parts[1]) : new Locale(parts[0]);
     }
 
     // ── 占位符替换与安全 ───────────────────────────────────────────────────────

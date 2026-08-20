@@ -72,3 +72,28 @@ jobs:
         run: ./gradlew :pepper-lib-shaded-example:shadowJar
       - name: Paper smoke (shaded)
         run: bash scripts/paper-smoke.sh shaded
+
+  # 低版本服务器自适应加载 smoke（文档 §4.1）：Paper 1.18.2（最低支持版本）+ Java 17，
+  # 验证前置插件 plugin.yml ('1.18') 可加载且 gui-host 被自动禁用。
+  legacy-consumer-paper-smoke:
+    runs-on: ubuntu-latest
+    needs: library-check
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 25 (build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build front-end plugin
+        run: ./gradlew :pepper-lib-plugin:shadowJar
+      # 构建产物为 Java 17 字节码；1.18.2 服务器在 Java 17 上运行（覆盖 JAVA_HOME）。
+      - name: Set up JDK 17 (smoke runtime)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Paper smoke (legacy 1.18.2)
+        run: bash scripts/paper-smoke.sh legacy

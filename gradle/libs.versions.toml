@@ -1,0 +1,33 @@
+# 版本目录：全部依赖/插件版本单一来源（Gradle 自动从 gradle/libs.versions.toml 加载）。
+# 升级依赖只改这里；三个子项目构建文件经 libs.* 访问器引用，禁止散落硬编码版本。
+
+[versions]
+paper = "26.1.2.build.74-stable"
+annotations = "26.0.1"
+papi = "2.11.6"
+vault = "1.7"
+junit = "5.11.4"
+mockbukkit = "4.115.0"
+mockito = "5.23.0"
+sqlite = "3.46.1.0"
+palantirJavaFormat = "2.97.0"
+spotless = "8.9.0"
+shadow = "9.2.2"
+japicmp = "0.4.5"
+
+[libraries]
+paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "annotations" }
+placeholderapi = { module = "me.clip:placeholderapi", version.ref = "papi" }
+vault-api = { module = "com.github.MilkBowl:VaultAPI", version.ref = "vault" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+mockbukkit = { module = "org.mockbukkit.mockbukkit:mockbukkit-v26.1.2", version.ref = "mockbukkit" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+japicmp = { id = "me.champeau.gradle.japicmp", version.ref = "japicmp" }

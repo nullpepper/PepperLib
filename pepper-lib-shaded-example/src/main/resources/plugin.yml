@@ -1,7 +1,7 @@
 name: ShadedExample
 version: '1.0.0'
 main: io.example.shaded.ShadedExamplePlugin
-api-version: '26.1'
+api-version: '1.18'
 load: POSTWORLD
 description: Shade-mode consumer example (PepperLib relocated to io.example.shaded.lib).
 authors:
