@@ -183,6 +183,19 @@ PepperClaim
 
 PepperClaim 仍可通过自己的其他依赖使用 PepperUnion；PepperLib 是两个消费者共同的必需前置，不替代 PepperUnion 的业务依赖关系。
 
+### 版本校验契约（防漂移 checklist）
+
+消费者主类中的 `REQUIRED_PEPPERLIB_API` 常量必须与 `compileOnly` 依赖版本的前缀一致，
+否则服务器上 `apiVersion().startsWith(REQUIRED)` 校验会误判（依赖升了、常量没升 → 启动即被
+自己的校验禁用；Union/Claim 曾在 0.3.0 ~ 0.5.0 期间实际漂移于 `"0.2"`）。接入 checklist：
+
+1. 升依赖版本时**同步**主类 `REQUIRED_PEPPERLIB_API`（前缀，如 `"0.5"`）；
+2. 构建挂 `verifyPepperLibVersion` 任务（各消费者 build.gradle 内实现）：解析
+   `compileClasspath` 中 `io.pepper:pepper-lib` 实际版本，断言与常量一致，
+   不一致构建失败——把「服务器运行时才炸」提前到「本地/CI 构建即红」；
+3. 运行时校验语义「前缀匹配」仅适用于 0.x 阶段；1.0 冻结后切换为「最低版本比较」
+   （见设计评审 docs/pepperlib-design-review.md §4.3）。
+
 ## 6. Shade 模式契约
 
 第三方消费者使用普通库坐标：

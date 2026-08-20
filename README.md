@@ -1,10 +1,13 @@
 # PepperLib
 
-PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
+Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
+（PepperUnion / PepperClaim / PepperBotBindManager 已接入；PepperBotCustomMessage 已提取待接入）。
 
 ## 定位
 
-- **内部共享库**：只提取两个插件已经拥有一致语义的代码（去重契约，不提前创建万能接口）。
+- **内部共享库**：优先提取两个以上插件已经拥有一致语义的代码（去重契约，不提前创建万能接口）。
+  例外条款：单消费者但高价值的安全原语（如安全表达式 `SafeExpression`，防 RCE 稀缺能力），
+  在预期第二消费者时允许提取，须在 README 内容表与 CHANGELOG 记录来源与理由。
 - **依赖方向**：`PepperClaim → PepperLib`、`PepperUnion → PepperLib`；lib 零插件引用
   （`SourceDependencyGuardTest` 守卫）。lib 可独立发布、独立构建。
 - **运行形态（双模式，见 docs/pepperlib-dual-loading-and-consumer-migration.md）**：

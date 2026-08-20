@@ -4,7 +4,33 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
-## [Unreleased]
+## [0.5.0] - 2026-08-20
+
+### 新增
+
+- **安全表达式引擎** `io.pepper.lib.expression`（源自 PepperBotCustomMessage 提取，
+  纯 JDK 零依赖）：
+  - `SafeExpression`：白名单布尔表达式引擎（`&&` / `||` / `!` / 比较 /
+    `contains` / `startswith` / `endswith`，字符串/数字/布尔字面量）——无反射、
+    无类加载、无方法调用，源码长度（4096）与嵌套深度（64）有界，拒绝 RCE 面；
+  - `PlaceholderVariableMapper`：条件串中 `<xxx>` 与 `%xxx%` 改写为合法变量名
+    （非法字符 → `_`，清洗后同名冲突抛 `IllegalArgumentException`），
+    记录 变量名 → 原始占位符名 映射。
+- **通用纯 Java 工具** `io.pepper.lib.util`（源自 PepperBotCustomMessage 提取）：
+  - `CooldownTracker`：per-key 冷却槽——`tryAcquire` 原子抢占、`release`
+    remove-if-equals（防并发误删）、`shouldSendTip` 提示节流、`remainingMillis`、
+    `clear`；窗口 `windowMillis <= 0` 视为禁用（直通语义与原版一致）；
+  - `Hashing.sha256`：UTF-8 → 64 位小写 hex。
+
+> 例外条款案例：表达式/工具四件套为单消费者（CustomMessage）提取，按 README
+> 定位例外条款允许——防 RCE 安全原语属高价值稀缺能力，预期第二消费者。
+
+### 变更
+
+- 版本 0.4.0 → 0.5.0（前置插件 apiVersion 与发布坐标同步）；BindManager
+  `REQUIRED_PEPPERLIB_API` 同步升级 0.5；japicmp 基线切至 0.4.0。
+
+## [0.4.0] - 2026-08-20
 
 ### 新增
 
@@ -42,26 +68,11 @@ All notable changes to PepperLib are documented here. Format follows
     聚合「能力 → 最低版本」注册表，`CapabilityResolver` 改为注册表遍历决策——
     新增特性只需贴注解，不再改决策代码；消费者 `supports("gui-host")` 契约不变。
     守卫测试（`MinMinecraftVersionGuardTest`）断言 gui-host 三类注解存在且阈值一致。
-- **安全表达式引擎** `io.pepper.lib.expression`（源自 PepperBotCustomMessage 提取，
-  纯 JDK 零依赖）：
-  - `SafeExpression`：白名单布尔表达式引擎（`&&` / `||` / `!` / 比较 /
-    `contains` / `startswith` / `endswith`，字符串/数字/布尔字面量）——无反射、
-    无类加载、无方法调用，源码长度（4096）与嵌套深度（64）有界，拒绝 RCE 面；
-  - `PlaceholderVariableMapper`：条件串中 `<xxx>` 与 `%xxx%` 改写为合法变量名
-    （非法字符 → `_`，清洗后同名冲突抛 `IllegalArgumentException`），
-    记录 变量名 → 原始占位符名 映射。
-- **通用纯 Java 工具** `io.pepper.lib.util`（源自 PepperBotCustomMessage 提取）：
-  - `CooldownTracker`：per-key 冷却槽——`tryAcquire` 原子抢占、`release`
-    remove-if-equals（防并发误删）、`shouldSendTip` 提示节流、`remainingMillis`、
-    `clear`；窗口 `windowMillis <= 0` 视为禁用（直通语义与原版一致）；
-  - `Hashing.sha256`：UTF-8 → 64 位小写 hex。
 
 ### 变更
 
 - 版本 0.3.0 → 0.4.0（前置插件 apiVersion 与发布坐标同步，单一来源根项目
   version）；BindManager 依赖与 `REQUIRED_PEPPERLIB_API` 同步升级 0.4。
-- 版本 0.4.0 → 0.5.0（前置插件 apiVersion 与发布坐标同步）；BindManager
-  `REQUIRED_PEPPERLIB_API` 同步升级 0.5；japicmp 基线切至 0.4.0。
 
 ### 构建
 
@@ -74,6 +85,19 @@ All notable changes to PepperLib are documented here. Format follows
   （fresh 环境/CI 无本地发布历史）。
 - 新增 `BuildInfraGuardTest` 守卫测试：`check` 必须依赖 `japicmp`；三个构建文件
   不得散落硬编码版本。
+
+## [0.3.0] - 2026-08-20
+
+### 新增
+
+- **第三个消费者接入（前置模式）**：PepperBotBindManager 仿照 PepperClaim 前置模式
+  接入——`compileOnly` 坐标依赖 + `plugin.yml` 声明必需前置 + `onEnable` 经
+  ServicesManager 校验 `PepperLibRuntime`（`REQUIRED_PEPPERLIB_API`），复用 storage
+  迁移框架 / task ThreadGuard / validation Preconditions。
+
+### 变更
+
+- 版本升至 0.3.0（前置插件 apiVersion 与发布坐标同步）。
 
 ## [0.2.0] - 2026-08-20
 
