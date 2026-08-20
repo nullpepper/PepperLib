@@ -61,3 +61,20 @@ GuiManagerOpenPageTest / ConfirmMenuBehaviorTest / PagedMenuSupportTest）覆盖
 - ✅ 插件禁用 / 玩家退出 / 顶部点击 / 拖拽行为不变（onDisable/onPlayerQuit 路径逐条核对）
 - ✅ 15 个菜单全部迁移，AbstractGui / PagedMenu 已删除，PageGuide 已去事件化
 - ⚠️ 行为等价依赖代码转换核对（见第 5 条）
+
+## 8. 第二轮架构统一（已实施 2026-08）
+
+用户决策：统一 ThreadGuard 与 GUI 事件管线。
+
+1. **ThreadGuard → lib**（`io.pepper.lib.task.ThreadGuard`）：合并两插件守卫为超集
+   （Async 断言 + 带上下文重载 + 主线程标记 IO 断言）。本地实现删除，测试迁移。
+2. **GUI 事件管线 → lib**（`io.pepper.lib.gui.GuiHost` + `GuiHolder`）：
+   - GuiHost 为**实例类**（两插件可同服共存，各持实例；非静态单例）；
+   - Union `GuiManager` 变 30 行薄壳（静态入口 inst() 委托）；
+   - Claim 删除 `ClaimGuiListener`，`ClaimGui.Holder` 实现 lib GuiHolder，
+     openXxx 改经 `guiHost.openGui`（打开调度 + 连点防抖为行为增强）；
+   - `PageGuiContext`/`PageHolderAdapter` 随迁 lib；
+   - 顺带修复原 GuiManager 空 holder 点击 NPE（`gui != null` 守卫）。
+
+验证：lib 109 / Claim 544 / Union 314 全绿（含 spotless/spotbugs/javadoc）。
+提交：lib（ThreadGuard + GuiHost）、claim `246116e`、union（GuiManager 薄壳）。
