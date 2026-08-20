@@ -101,3 +101,24 @@ LanguageManager 瘦身为壳（format/render 等调用点零改动）。
    原子 reload、坏 YAML/坏模板降级；Union `formatText` 移除（零调用点）。
 
 验证：lib 23 / Claim 546 / Union 314 全绿（含 spotless/spotbugs/javadoc）。
+
+## 10. 第二轮提取 A+B：Scheduler 与 Amounts 统一（已实施 2026-08）
+
+依据 docs/extraction-audit-2.md（审计）与 docs/extraction-a2-plan.md（方案）。
+
+1. **Scheduler → lib**（`io.pepper.lib.task`）：
+   - `PepperScheduler` 增 3 个遗留别名 default 方法（`runTaskAsynchronously → runAsync`、
+     `runTaskTimer → runRepeating`、`supplyOnMainThread → supplyOnMain`）——委托方向翻转
+     （旧插件接口是「新名 default 委托旧名」，lib 统一为「旧名 default 委托规范名」），
+     存量调用名全部保留；
+   - 新 `BukkitPepperScheduler`（两份 PaperScheduler 实现 diff 仅差 package，合并为一）；
+   - 两插件删除 Scheduler/PaperScheduler/SchedulerPepperContractTest 共 6 文件，
+     55 个引用文件机械替换类型（方法名零改动）；测试替身改实现 lib 接口并补 isMainThread。
+2. **Amounts → lib**（`io.pepper.lib.money.Amounts`）：
+   - 超集：`toCents(double/BigDecimal)`（Claim HALF_UP）、`toMajor(long)`（Union 2^53 守卫，
+     取代 toVault）、`format(long)` 去尾零（Union）+ `formatFixed(long)` 固定 2 位（Claim）、
+     `tryParse`（Union）、`isValid(long)` ±1e15 + 参数化 `isValid(long, long)`；
+   - 两插件 util/Amounts 删除；Claim 4 处 format → formatFixed（显示逐字符不变），
+     Union 37 处 format 同名收敛，54 处调用点全部有映射。
+3. 验证：lib 150 / Claim 538 / Union 308 全绿（spotless/spotbugs/javadoc 过门）；
+   显示语义零变化由 lib 双 format 变体测试固化。

@@ -6,12 +6,9 @@ import java.util.function.Supplier;
 /**
  * 主线程 / 异步调度抽象：业务代码不直接 import Bukkit 调度 API。
  *
- * <p>本库只定义契约，不提供 Bukkit 实现——由插件各自实现适配器
- * （PepperUnion {@code PaperScheduler}、PepperClaim {@code PaperScheduler} 适配本接口）。</p>
- *
- * <p>命名与两插件现有 {@code Scheduler} 的映射：{@code runAsync} ←
- * {@code runTaskAsynchronously}；{@code runRepeating} ← {@code runTaskTimer}；
- * {@code supplyOnMain} ← {@code supplyOnMainThread}。</p>
+ * <p>规范名（{@code runTask / runAsync / runRepeating / supplyOnMain / isMainThread}）为
+ * 抽象契约；遗留别名（{@code runTaskAsynchronously / runTaskTimer / supplyOnMainThread}）
+ * 以 default 委托规范名，存量调用名不受影响。生产实现见 {@link BukkitPepperScheduler}。</p>
  */
 public interface PepperScheduler {
 
@@ -38,4 +35,19 @@ public interface PepperScheduler {
      * <p>用于原本异步的链中需要主线程执行的经济调用等场景。</p>
      */
     <T> CompletableFuture<T> supplyOnMain(Supplier<T> supplier);
+
+    /** 遗留别名：{@link #runAsync}（存量调用名兼容）。 */
+    default void runTaskAsynchronously(final Runnable task) {
+        this.runAsync(task);
+    }
+
+    /** 遗留别名：{@link #runRepeating}（存量调用名兼容）。 */
+    default void runTaskTimer(final Runnable task, final long delayTicks, final long periodTicks) {
+        this.runRepeating(task, delayTicks, periodTicks);
+    }
+
+    /** 遗留别名：{@link #supplyOnMain}（存量调用名兼容）。 */
+    default <T> CompletableFuture<T> supplyOnMainThread(final Supplier<T> supplier) {
+        return this.supplyOnMain(supplier);
+    }
 }
