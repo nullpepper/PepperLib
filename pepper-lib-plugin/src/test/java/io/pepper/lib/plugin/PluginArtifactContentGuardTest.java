@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  */
 class PluginArtifactContentGuardTest {
 
-    private static final Path JAR = Path.of("build/libs/PepperLib-0.5.0.jar");
+    private static final Path JAR = Path.of("build/libs/PepperLib-0.6.0.jar");
 
     private static Set<String> entries() throws IOException {
         try (ZipFile zip = new ZipFile(JAR.toFile())) {

@@ -1,4 +1,4 @@
 name: PepperLib
-version: 0.5.0
+version: 0.6.0
 main: io.pepper.lib.plugin.PepperLibPlugin
 api-version: '1.18'

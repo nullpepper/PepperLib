@@ -4,6 +4,28 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.6.0] - 2026-08-20
+
+### 新增
+
+- **版本比较工具** `io.pepper.lib.runtime.LibVersions`（设计评审 §4.3）：
+  - `parse`：semver 风格 1~3 段版本（`"0.5.0"` / `"0.5"` / `"1"`）解析为 `[major, minor, patch]`
+    数值数组，缺段补 0；非法输入（null/空白/非数值/空段/4 段以上/负数）抛
+    `IllegalArgumentException`；
+  - `atLeast(actual, minimum)`：分段数值「实际 &gt;= 最低」比较（缺段按 0 补，
+    `"0.5.0"` 与 `"0.5"` 等价）。
+- **运行时「≥ 最低版本」校验**：`PepperLibRuntime.atLeast(String)` default 方法
+  （委托 `LibVersions`）——替代消费者侧 `apiVersion().startsWith(...)` 前缀匹配：
+  0.x 阶段前缀近似 minor 契约，1.0 冻结后破坏性 major 升级会被前缀误放行。
+  兼容注意：default 方法为纯增量（japicmp），但旧版 lib 运行时不存在该方法，
+  前置模式消费者升级 lib 与消费者必须同步（lib 先行）。
+
+### 变更
+
+- 版本 0.5.0 → 0.6.0（前置插件 apiVersion 与发布坐标同步）；japicmp 基线切至 0.5.0。
+- 消费者版本契约升级为「版本单一来源注入 + atLeast 校验」（Union/Claim/BindManager/
+  CustomMessage 同步切换，见各消费者提交）。
+
 ## [0.5.0] - 2026-08-20
 
 ### 新增

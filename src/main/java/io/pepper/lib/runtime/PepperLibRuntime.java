@@ -35,4 +35,24 @@ public interface PepperLibRuntime {
      * @return 能力可用性
      */
     boolean supports(String capability);
+
+    /**
+     * 运行时 API 版本是否达到最低要求（版本比较语义，设计评审 §4.3）。
+     *
+     * <p>替代消费者侧 {@code apiVersion().startsWith(...)} 前缀校验：0.x 阶段前缀近似
+     * minor 契约，1.0 冻结后破坏性 major 升级会被前缀误放行。本方法按「实际 &gt;= 最低」
+     * 分段数值比较（缺段按 0 补，如 {@code "0.5.0"} 与 {@code "0.5"} 等价）。</p>
+     *
+     * <p><b>兼容注意</b>：本方法由 0.6.0 引入，属 default 方法（japicmp 纯增量）；
+     * 但旧版 lib（0.5.x 及更早）运行时不存在该方法，调用即 {@code NoSuchMethodError}——
+     * 前置模式消费者编译期依赖版本即运行时最低要求，升级 lib 与消费者必须同步
+     * （发版顺序：lib 先行，消费者随后）。</p>
+     *
+     * @param minimumApiVersion 消费者声明的最低 API 版本（如 {@code "0.5"}）
+     * @return 运行时版本是否达到最低要求
+     * @throws IllegalArgumentException 任一输入非法
+     */
+    default boolean atLeast(String minimumApiVersion) {
+        return LibVersions.atLeast(apiVersion(), minimumApiVersion);
+    }
 }
