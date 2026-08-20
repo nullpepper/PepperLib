@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * 轻量级版本化迁移执行器（硬化版，源自 PepperUnion {@code MigrationRunner}）。
@@ -118,7 +119,11 @@ public final class MigrationRunner {
      * 回滚失败事务并恢复 autoCommit。回滚或恢复任一步失败时关闭连接并返回
      * {@code false}——绝不能对「可能仍处于活动事务」的连接调用
      * {@code setAutoCommit(true)}，否则 JDBC 会先提交半截迁移。
+     *
+     * <p>包私有：仅为 {@code MigrationRunnerTest} 崩溃路径测试提供直接调用入口
+     * （生产路径仅经 {@link #runSqliteAtomic} 使用）。</p>
      */
+    @VisibleForTesting
     static boolean rollbackAndRestore(final Connection connection, final Throwable failure) {
         try {
             connection.rollback();
