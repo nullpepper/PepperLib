@@ -9,6 +9,9 @@ PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
   （`SourceDependencyGuardTest` 守卫）。lib 可独立发布、独立构建。
 - **运行形态**：lib 不打包 Bukkit/Paper 类型（编译期 `compileOnly`），由插件运行时提供；
   两插件经 Gradle composite build 或坐标依赖接入。
+- **生态边界**：仅面向 Paper 1.21+ 生态（API 26.1 基线）。`gui` / `confirm` / `i18n` /
+  `economy` / `papi` / `task` 的公共签名耦合 Bukkit 类型；`money` / `validation` / `storage`
+  为纯 Java 模块（详见各包 `package-info` 耦合度标注）。
 
 ## 内容（20 个公共 API，0.1.0）
 
@@ -18,7 +21,7 @@ PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
 | `io.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
 | `io.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` | 已接入（两插件 GUI） |
 | `io.pepper.lib.confirm` | `ConfirmEntry` / `ConfirmRegistry` / `ConfirmCleanupListener` | 已接入（两插件二次确认） |
-| `io.pepper.lib.validation` | `Preconditions` | **Experimental**：lib 内部使用，插件侧无直接消费者 |
+| `io.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
 | `io.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
 
 ## API 稳定性策略

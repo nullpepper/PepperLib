@@ -6,8 +6,8 @@ package io.pepper.lib.validation;
  * <p>只放与业务无关的通用检查；金额、权限、领域约束等业务校验留在插件内。
  * lib 内部类型（ConfirmEntry/ConfirmRegistry/GuiClick 等）已使用本类。</p>
  *
- * <p><b>Experimental（0.1.0）</b>：插件侧尚无直接消费者（新代码优先使用，
- * 存量不强迁），API 可能在 0.2.x 调整。</p>
+ * <p><b>稳定（0.1.0 转正）</b>：原 Experimental 标注已移除——本类为 lib 内部
+ * 五处消费的公共基础且语义无业务耦合，按稳定契约对待（0.1.x 不破坏签名）。</p>
  */
 public final class Preconditions {
 

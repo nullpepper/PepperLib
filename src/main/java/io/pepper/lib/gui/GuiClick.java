@@ -8,7 +8,7 @@ import org.bukkit.event.inventory.InventoryAction;
  * 去 Bukkit 化的点击协议：业务页面不直接依赖完整事件对象。
  *
  * <p>由插件的 GuiManager / Listener 负责把 Bukkit 事件转换成该记录
- * （PepperLib-Extraction-Plan §5.1）。</p>
+ * （内部设计文档 extraction-plan §5.1）。</p>
  */
 public record GuiClick(int rawSlot, ClickType clickType, InventoryAction action, boolean topInventory) {
 

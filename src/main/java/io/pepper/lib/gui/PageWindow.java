@@ -7,7 +7,7 @@ package io.pepper.lib.gui;
  * 0-based 索引。{@link #of} 对越界输入做收敛（clamp），直接构造则严格校验。</p>
  *
  * <p>统一 PepperUnion {@code PageWindow} 与 PepperClaim {@code GuiPageBounds}
- * 到该契约（PepperLib-Extraction-Plan §5.4）。</p>
+ * 到该契约（内部设计文档 extraction-plan §5.4）。</p>
  */
 public record PageWindow(int page, int maxPage, int pageSize, int startIndex) {
 

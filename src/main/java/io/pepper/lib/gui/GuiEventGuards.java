@@ -9,7 +9,7 @@ import org.bukkit.inventory.InventoryHolder;
  * GUI 事件边界守卫：只负责事件边界判断，不含业务。
  *
  * <p>统一 PepperUnion {@code GuiEventGuards} 与 PepperClaim 的 Holder/拖拽判断
- * （PepperLib-Extraction-Plan §5.6）。实现层不应同时保存 Player 引用和 UUID，
+ * （内部设计文档 extraction-plan §5.6）。实现层不应同时保存 Player 引用和 UUID，
  * 优先使用 UUID 比较。</p>
  */
 public final class GuiEventGuards {

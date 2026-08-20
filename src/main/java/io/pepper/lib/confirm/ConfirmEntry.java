@@ -6,7 +6,7 @@ import io.pepper.lib.validation.Preconditions;
  * 一条待确认操作：TTL 内可被 consume，过期自动失效。
  *
  * <p>统一两插件的待确认形态：PepperUnion {@code PendingAction} 与
- * PepperClaim {@code ConfirmIntent}（PepperLib-Skeleton-Draft §2.1）。</p>
+ * PepperClaim {@code ConfirmIntent}（内部设计文档 skeleton-draft §2.1）。</p>
  *
  * @param action 待确认操作（插件业务类型，如意图/动作对象）
  * @param expiresAt 过期时间戳（epoch 毫秒）

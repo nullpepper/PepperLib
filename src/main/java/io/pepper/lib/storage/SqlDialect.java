@@ -8,7 +8,7 @@ import java.sql.SQLException;
  * 受支持数据库之间的 SQL 方言差异（公共核心）。
  *
  * <p>只暴露两插件语义一致的部分；插件专属 SQL 段（如 upsert、列定义）由
- * 插件侧扩展接口继承本核心（见 PepperLib-Skeleton-Draft §1.4）。</p>
+ * 插件侧扩展接口继承本核心（内部设计文档 skeleton-draft §1.4）。</p>
  */
 public interface SqlDialect {
 

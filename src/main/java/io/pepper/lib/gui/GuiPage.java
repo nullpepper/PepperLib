@@ -6,7 +6,7 @@ import org.bukkit.inventory.Inventory;
  * 最小页面协议：第一版不引入复杂 sealed action 状态机。
  *
  * <p>业务页面由插件实现本接口；完整的 GuiManager / 菜单生命周期留在插件内
- * （PepperLib-Extraction-Plan §5.3、§6.5）。</p>
+ * （内部设计文档 extraction-plan §5.3）。</p>
  *
  * @param <S> 页面状态类型
  */

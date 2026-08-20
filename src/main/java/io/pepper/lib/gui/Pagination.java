@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>语义与 PepperClaim {@code ClaimGuiModel} 的 {@code page}/{@code itemAt}
  * 一致（越界返回空列表 / {@code null}），保证插件迁移后 GUI 行为无变化
- * （PepperLib-Extraction-Plan §5.5、阶段 5 退出条件）。</p>
+ * （内部设计文档 extraction-plan §5.5）。</p>
  */
 public final class Pagination {
 

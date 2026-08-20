@@ -6,7 +6,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Vault 软依赖解析（设计文档 docs/extraction-audit-2.md C 项）。
+ * Vault 软依赖解析（内部设计文档 extraction-audit C 项）。
  *
  * <p>惰性解析经济服务（重载安全），未安装/未注册时返回 null。
  * 桥本体（接口契约）由插件各自定义，本类只提供解析机制。</p>
