@@ -122,3 +122,21 @@ LanguageManager 瘦身为壳（format/render 等调用点零改动）。
      Union 37 处 format 同名收敛，54 处调用点全部有映射。
 3. 验证：lib 150 / Claim 538 / Union 308 全绿（spotless/spotbugs/javadoc 过门）；
    显示语义零变化由 lib 双 format 变体测试固化。
+
+## 11. 第二轮提取 C+D：Vault 解析与 PAPI 注册样板（已实施 2026-08）
+
+依据 docs/extraction-audit-2.md C/D 项。
+
+1. **Vault 软依赖解析 → lib**（`io.pepper.lib.economy.VaultSupport`）：惰性
+   `economy()`（ServicesManager 查询，重载安全）；两桥内部解析委托（Claim 构造时 /
+   Union 每调用），桥本体契约（cents+Result vs double+boolean）不统一。
+   新增 jitpack 仓库 + VaultAPI 1.7 compileOnly/testImplementation（与 Union 同坐标）。
+2. **PAPI 扩展注册样板 → lib**（`io.pepper.lib.papi.PapiExpansionSupport`）：
+   泛型 Supplier 形态 `register(factory)`——守卫（未安装/未启用 → null）在 lib 内，
+   **工厂仅在 PAPI 在场时调用**（扩展类 extends PAPI 类型，无 PAPI 时构造即
+   NoClassDefFoundError）；返回注册实例供 onDisable 注销；异常兜底。
+   Claim/Union 注册点改一行；Union 保留实例引用注销不变。
+3. **实施发现**：Claim 测试运行时缺 PAPI jar——`PapiExpansionSupport.register` 的
+   泛型边界使 Mockito 重变换 `PepperClaimPlugin` 时解析 `PlaceholderExpansion` 签名
+   → ClassNotFoundException → 补 testImplementation（与 Union 对齐）。
+4. 验证：lib 155 / Claim 538 / Union 308 全绿（spotless/spotbugs/javadoc 过门）。
