@@ -1,0 +1,7 @@
+greeting: "你好，%name%！"
+with.placeholder: "进度: %progress% / %progress%"
+payload.msg: "内容: %payload%"
+broken.template: "<gradient:red>坏"
+only.zh: "只在中文"
+papi.msg: "Hi %papi_x% %name%!"
+rescan.msg: "A: %a% B: %b%"

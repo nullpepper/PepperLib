@@ -1,0 +1,4 @@
+name: PlaceholderAPI
+version: 1.0
+main: io.pepper.lib.i18n.FakePapiPlugin
+api-version: '1.20'

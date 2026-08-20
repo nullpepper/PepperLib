@@ -21,6 +21,10 @@ repositories {
         name = "papermc"
         url = uri("https://repo.papermc.io/repository/maven-public/")
     }
+    maven {
+        name = "extendedclip"
+        url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/")
+    }
     mavenCentral()
 }
 
@@ -28,6 +32,8 @@ dependencies {
     // Paper API 仅编译期：PepperLib 不打包 Bukkit/Paper 类型，由插件运行时提供。
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     compileOnly("org.jetbrains:annotations:26.0.1")
+    // PAPI 仅编译期软依赖（i18n PapiPlaceholderResolver）：不打包、不传递；运行时由插件提供。
+    compileOnly("me.clip:placeholderapi:2.11.6")
     // 阶段 6.5 收敛：方言实现（SqliteDialect/MariaDbDialect）与 ConnectionPoolFactory
     // 已删除（零消费者），HikariCP 与驱动类字面量不再需要——消费方插件各自提供。
 
@@ -37,6 +43,8 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.23.0")
     testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")
+    // PAPI 测试同版本（与 Union 一致）：验证 jar 在场但未注册扩展的路径。
+    testImplementation("me.clip:placeholderapi:2.11.6")
     // 迁移框架测试使用内存 SQLite（DriverManager 按 jdbc url 加载驱动）。
     testImplementation("org.xerial:sqlite-jdbc:3.46.1.0")
 }

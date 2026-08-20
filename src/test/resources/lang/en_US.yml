@@ -1,0 +1,5 @@
+greeting: "Hello, %name%!"
+with.placeholder: "Progress: %progress% / %progress%"
+payload.msg: "Payload: %payload%"
+broken.template: "<gradient:red>bad"
+only.en: "English only"

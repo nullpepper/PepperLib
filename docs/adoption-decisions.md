@@ -78,3 +78,26 @@ GuiManagerOpenPageTest / ConfirmMenuBehaviorTest / PagedMenuSupportTest）覆盖
 
 验证：lib 109 / Claim 544 / Union 314 全绿（含 spotless/spotbugs/javadoc）。
 提交：lib（ThreadGuard + GuiHost）、claim `246116e`、union（GuiManager 薄壳）。
+
+## 9. 统一 i18n 机制（已实施 2026-08）
+
+设计文档：`docs/i18n-unified-design.md`。机制入 lib（`io.pepper.lib.i18n`：LanguageBundle /
+TextValue / LocaleResolver / PlaceholderResolver / PapiPlaceholderResolver），两插件
+LanguageManager 瘦身为壳（format/render 等调用点零改动）。
+
+1. **评估修正（实施中发现）**：评估时认为 Claim 递归翻译「无调用点依赖可废弃」——
+   实测 `PlayerMiscCommands` 以 `pclaim.auto` / `claim.help.auto` **键值**渲染 help 条目，
+   递归翻译是活跃生产语义 → **保留为 Claim 壳层策略**（depth<3 同旧逻辑，raw 与 render
+   双路径）；lib 保持严格语义（与 Union「值不重译」一致）。
+2. **设计修正（评审）**：bundled→磁盘首启复制**否决**——首启全键快照会在插件更新后
+   遮蔽 bundled 新文本（Claim 旧版已有此陷阱，Union 现状无此问题）；保持纯 bundled +
+   可选磁盘逐键覆盖，FallbackLanguage 降级路径因此保持纯 bundled 契约。
+3. **PAPI 机制入 lib**：`compileOnly me.clip:placeholderapi:2.11.6` 软依赖（守卫 +
+   惰性类加载 + 异常兜底，Union 生产已验证模式）；**启用是插件策略**——Union 壳一行
+   装配 `PapiPlaceholderResolver.INSTANCE`（`papi/PapiSupport.java` 删除，净删 33 行），
+   Claim 壳不启用（现状无 PAPI，行为零变化）。
+4. 统一语义：两阶段渲染（模板预解析缓存，按 locale 分桶）、回退链
+   L → 默认 → 回退 → 键名、`TextValue.literal/mini`（mini 剥离点击事件 + 插入文本）、
+   原子 reload、坏 YAML/坏模板降级；Union `formatText` 移除（零调用点）。
+
+验证：lib 23 / Claim 546 / Union 314 全绿（含 spotless/spotbugs/javadoc）。
