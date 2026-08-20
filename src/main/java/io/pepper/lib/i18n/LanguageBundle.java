@@ -31,6 +31,10 @@ import org.yaml.snakeyaml.Yaml;
  * <p>加载语义：bundled 资源为底，存在的磁盘文件逐键覆盖胜出；磁盘文件缺失时直接使用 bundled，
  * 不自动写入磁盘。磁盘 YAML 语法错误或单个坏模板降级回退，绝不中断 reload。全部映射在完整构建后一次性
  * 换入（volatile），并发的 {@code format} 不会观察到半加载状态。</p>
+ *
+ * <p><b>自定义语言</b>：语言文件不会首启自动生成。需要覆盖默认文案时，从插件 JAR 提取
+ * {@code lang/<locale>.yml} 放到数据目录同名位置（如 {@code <dataFolder>/lang/zh_CN.yml}）
+ * 并调用 {@link #reload()}；磁盘文件按键覆盖 bundled。</p>
  */
 public final class LanguageBundle {
 

@@ -73,14 +73,14 @@ tasks.shadowJar {
 }
 ```
 
-插件描述文件：
+插件描述文件（paper-plugin.yml 格式，按 Paper 26 schema 校准——无 plugin.yml 风格的
+`load: STARTUP` 字段；加载顺序由消费者的 `dependencies.server` 声明表达）：
 
 ```yaml
 name: PepperLib
 version: '${version}'
 main: io.pepper.lib.plugin.PepperLibPlugin
 api-version: '26.1'
-load: STARTUP
 folia-supported: false
 ```
 
