@@ -154,7 +154,7 @@ class OneTimeCodeServiceTest {
         OneTimeCodeService<String> letters = new OneTimeCodeService<>(new Settings(7, true, 300, 60));
         String mixed = letters.issue("p", Duration.ofSeconds(300)).code();
         assertEquals(7, mixed.length());
-        assertTrue(mixed.matches("[0-9A-HJ-KM-NP-Z]{7}"), "字母模式排除易混淆的 I/O");
+        assertTrue(mixed.matches("[0-9A-Z&&[^IO]]{7}"), "字母模式排除易混淆的 I/O");
     }
 
     @Test

@@ -42,11 +42,26 @@ All notable changes to PepperLib are documented here. Format follows
     聚合「能力 → 最低版本」注册表，`CapabilityResolver` 改为注册表遍历决策——
     新增特性只需贴注解，不再改决策代码；消费者 `supports("gui-host")` 契约不变。
     守卫测试（`MinMinecraftVersionGuardTest`）断言 gui-host 三类注解存在且阈值一致。
+- **安全表达式引擎** `io.pepper.lib.expression`（源自 PepperBotCustomMessage 提取，
+  纯 JDK 零依赖）：
+  - `SafeExpression`：白名单布尔表达式引擎（`&&` / `||` / `!` / 比较 /
+    `contains` / `startswith` / `endswith`，字符串/数字/布尔字面量）——无反射、
+    无类加载、无方法调用，源码长度（4096）与嵌套深度（64）有界，拒绝 RCE 面；
+  - `PlaceholderVariableMapper`：条件串中 `<xxx>` 与 `%xxx%` 改写为合法变量名
+    （非法字符 → `_`，清洗后同名冲突抛 `IllegalArgumentException`），
+    记录 变量名 → 原始占位符名 映射。
+- **通用纯 Java 工具** `io.pepper.lib.util`（源自 PepperBotCustomMessage 提取）：
+  - `CooldownTracker`：per-key 冷却槽——`tryAcquire` 原子抢占、`release`
+    remove-if-equals（防并发误删）、`shouldSendTip` 提示节流、`remainingMillis`、
+    `clear`；窗口 `windowMillis <= 0` 视为禁用（直通语义与原版一致）；
+  - `Hashing.sha256`：UTF-8 → 64 位小写 hex。
 
 ### 变更
 
 - 版本 0.3.0 → 0.4.0（前置插件 apiVersion 与发布坐标同步，单一来源根项目
   version）；BindManager 依赖与 `REQUIRED_PEPPERLIB_API` 同步升级 0.4。
+- 版本 0.4.0 → 0.5.0（前置插件 apiVersion 与发布坐标同步）；BindManager
+  `REQUIRED_PEPPERLIB_API` 同步升级 0.5；japicmp 基线切至 0.4.0。
 
 ### 构建
 
@@ -55,7 +70,7 @@ All notable changes to PepperLib are documented here. Format follows
   公共仓库 / JUnit5；`pepper.spotless`：importOrder + palantirJavaFormat）——
   三个子项目 `build.gradle.kts` 去重，依赖与插件版本单一来源（升级只改目录一处）。
 - `japicmp` 二进制兼容门纳入 `./gradlew check` 绿门：基线默认 mavenLocal 上一发布
-  版本（0.2.0），`PEPPER_LIB_BASELINE_JAR` 可覆盖；基线 jar 缺失时跳过并告警
+  版本（0.4.0），`PEPPER_LIB_BASELINE_JAR` 可覆盖；基线 jar 缺失时跳过并告警
   （fresh 环境/CI 无本地发布历史）。
 - 新增 `BuildInfraGuardTest` 守卫测试：`check` 必须依赖 `japicmp`；三个构建文件
   不得散落硬编码版本。

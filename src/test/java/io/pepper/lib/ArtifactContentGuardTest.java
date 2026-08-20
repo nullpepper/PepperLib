@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  */
 class ArtifactContentGuardTest {
 
-    private static final Path JAR = Path.of("build/libs/pepper-lib-0.4.0.jar");
+    private static final Path JAR = Path.of("build/libs/pepper-lib-0.5.0.jar");
 
     private static Set<String> entries() throws IOException {
         try (ZipFile zip = new ZipFile(JAR.toFile())) {

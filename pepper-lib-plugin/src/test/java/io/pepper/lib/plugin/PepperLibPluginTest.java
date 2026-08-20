@@ -38,7 +38,7 @@ class PepperLibPluginTest {
                 this.server.getServicesManager().getRegistration(PepperLibRuntime.class);
         assertNotNull(provider, "PepperLibRuntime must be registered via ServicesManager");
         final PepperLibRuntime runtime = provider.getProvider();
-        assertEquals("0.4.0", runtime.apiVersion());
+        assertEquals("0.5.0", runtime.apiVersion());
         assertFalse(runtime.supports("nonexistent-capability"));
     }
 

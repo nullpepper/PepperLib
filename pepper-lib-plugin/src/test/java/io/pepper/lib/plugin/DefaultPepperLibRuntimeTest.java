@@ -13,13 +13,13 @@ class DefaultPepperLibRuntimeTest {
 
     @Test
     void apiVersionIsPassedThrough() {
-        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.3.0", Set.of());
-        assertEquals("0.3.0", runtime.apiVersion());
+        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.5.0", Set.of());
+        assertEquals("0.5.0", runtime.apiVersion());
     }
 
     @Test
     void emptyCapabilitiesReportFalseForEverything() {
-        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.3.0", Set.of());
+        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.5.0", Set.of());
         assertFalse(runtime.supports(PepperLibRuntime.CAP_GUI_HOST));
         assertFalse(runtime.supports("unknown"));
         assertFalse(runtime.supports(null));
@@ -27,7 +27,7 @@ class DefaultPepperLibRuntimeTest {
 
     @Test
     void declaredCapabilityIsReported() {
-        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.3.0", Set.of(PepperLibRuntime.CAP_GUI_HOST));
+        final PepperLibRuntime runtime = new DefaultPepperLibRuntime("0.5.0", Set.of(PepperLibRuntime.CAP_GUI_HOST));
         assertTrue(runtime.supports(PepperLibRuntime.CAP_GUI_HOST));
         assertFalse(runtime.supports("unknown"));
     }

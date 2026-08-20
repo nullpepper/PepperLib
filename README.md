@@ -42,11 +42,13 @@ PepperUnion 与 PepperClaim 共享的协议 / 模型 / 基础设施原语库。
   ——Paper 26.x 对 paper-plugin.yml 有 api-version 下限校验（1.18 too old），而
   plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被接受（真实服务器验证）。
 
-## 内容（公共 API，0.4.0）
+## 内容（公共 API，0.5.0）
 
 | 包 | 类型 | 状态 |
 |---|---|---|
 | `io.pepper.lib.runtime` | `PepperLibRuntime` / `ServerVersions` / `MinMinecraftVersion` | 前置插件经 ServicesManager 注册的稳定运行时服务（版本/能力诊断）；类级最低版本声明注解 |
+| `io.pepper.lib.expression` | `SafeExpression` / `PlaceholderVariableMapper` | 稳定（源自 PepperBotCustomMessage 提取；安全布尔表达式 + 占位符改写，纯 Java） |
+| `io.pepper.lib.util` | `CooldownTracker` / `Hashing` | 稳定（源自 PepperBotCustomMessage 提取；per-key 冷却槽 + SHA-256，纯 Java） |
 | `io.pepper.lib.task` | `PepperScheduler` / `BukkitPepperScheduler` / `ThreadGuard`(Instance) | 已接入（两插件） |
 | `io.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
 | `io.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` / `GuiHost` | 已接入（两插件 GUI） |

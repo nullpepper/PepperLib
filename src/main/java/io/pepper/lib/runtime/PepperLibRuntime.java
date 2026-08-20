@@ -22,7 +22,7 @@ public interface PepperLibRuntime {
     String CAP_GUI_HOST = "gui-host";
 
     /**
-     * 前置插件提供的 PepperLib API 版本（如 {@code "0.3.0"}，与发布坐标版本一致）。
+     * 前置插件提供的 PepperLib API 版本（如 {@code "0.5.0"}，与发布坐标版本一致）。
      *
      * @return 版本号字符串
      */
