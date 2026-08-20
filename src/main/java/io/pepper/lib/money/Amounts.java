@@ -5,7 +5,7 @@ import java.math.RoundingMode;
 import java.util.Optional;
 
 /**
- * 金额工具（统一自两插件 util.Amounts，设计文档 docs/extraction-a2-plan.md §2）。
+ * 金额工具（统一自两插件 util.Amounts，内部设计文档 extraction-a2 §2）。
  *
  * <p>金额边界：持久化/服务内部一律分（long），Vault/渲染边界用 BigDecimal 换算。
  * 显示双变体：{@link #format(long)} 去尾零（PepperUnion 语义），
@@ -23,6 +23,9 @@ public final class Amounts {
 
     /** Vault 是 double 型；超出 double 整数精度（2^53≈9.007e15 分）拒绝转换，避免静默丢精度。 */
     private static final long MAX_VAULT_EXACT_CENTS = 9_007_199_254_740_992L;
+
+    /** {@link #tryParse(String)} 输入长度上限（防超长数字串触发昂贵 BigDecimal 解析）。 */
+    private static final int MAX_INPUT_LENGTH = 32;
 
     private Amounts() {}
 
@@ -78,8 +81,8 @@ public final class Amounts {
 
     /**
      * 解析用户输入的金额为分。拒绝空串、科学计数法（如 {@code 1E+30}，会解析为
-     * Infinity）、超过两位小数、超出 {@link #MAX_CENTS} 的值。使用 {@link BigDecimal}
-     * 解析，避免二进制浮点舍入污染金额。
+     * Infinity）、超过两位小数、超出 {@link #MAX_CENTS} 的值、以及超过 32 字符的
+     * 超长输入（防昂贵解析）。使用 {@link BigDecimal} 解析，避免二进制浮点舍入污染金额。
      */
     public static Optional<Long> tryParse(final String raw) {
         if (raw == null) {
@@ -87,6 +90,10 @@ public final class Amounts {
         }
         final String trimmed = raw.trim();
         if (trimmed.isEmpty()) {
+            return Optional.empty();
+        }
+        if (trimmed.length() > MAX_INPUT_LENGTH) {
+            // 超长数字串（玩家可输入）会触发昂贵的 BigDecimal 解析：长度上限直接拒绝。
             return Optional.empty();
         }
         if (trimmed.indexOf('e') >= 0 || trimmed.indexOf('E') >= 0) {

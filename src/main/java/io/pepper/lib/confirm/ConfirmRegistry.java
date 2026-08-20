@@ -25,6 +25,9 @@ public final class ConfirmRegistry<T> {
     /**
      * 为玩家登记一条待确认操作（覆盖任何之前的记录）。
      *
+     * <p>登记前惰性清扫全部过期条目（{@link #clearExpired()}）：长在线玩家
+     * 的过期确认不会滞留内存；复杂度 O(在线玩家数)，登记路径可接受。</p>
+     *
      * @param playerUuid 玩家 UUID
      * @param action 待确认操作
      * @param ttlMillis 有效时长（毫秒），必须为正
@@ -36,6 +39,7 @@ public final class ConfirmRegistry<T> {
         if (ttlMillis <= 0) {
             throw new IllegalArgumentException("ttlMillis must be > 0, got " + ttlMillis);
         }
+        this.clearExpired();
         this.pending.put(playerUuid, new ConfirmEntry<>(action, System.currentTimeMillis() + ttlMillis));
     }
 
@@ -65,6 +69,7 @@ public final class ConfirmRegistry<T> {
             immediateRun.run();
             return true;
         }
+        this.clearExpired();
         this.pending.put(playerUuid, new ConfirmEntry<>(action, System.currentTimeMillis() + ttlMillis));
         return false;
     }

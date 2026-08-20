@@ -124,4 +124,15 @@ class AmountsTest {
         assertEquals(123, Amounts.tryParse("1.23").orElseThrow());
         assertEquals(-50, Amounts.tryParse("-0.5").orElseThrow());
     }
+
+    @Test
+    void tryParseRejectsOversizedInput() {
+        // 超长数字串（如被塞入 40 位零）会触发昂贵 BigDecimal 解析：长度上限直接拒绝。
+        // "0".repeat(40) 数值合法且不溢出，当前实现会解析成功——上限修复后必须拒绝。
+        assertTrue(Amounts.tryParse("0".repeat(40)).isEmpty());
+        assertTrue(Amounts.tryParse("1".repeat(40)).isEmpty());
+        // 正常输入不受影响。
+        assertTrue(Amounts.tryParse("123.45").isPresent());
+        assertTrue(Amounts.tryParse("9999999999999").isPresent());
+    }
 }

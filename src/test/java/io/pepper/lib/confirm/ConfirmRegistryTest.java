@@ -217,4 +217,16 @@ class ConfirmRegistryTest {
         assertNull(seen.get());
         assertSame(action, action);
     }
+
+    @Test
+    void registerSweepsExpiredEntriesBeforeStoringNewOnes() throws Exception {
+        final ConfirmRegistry<String> registry = new ConfirmRegistry<>();
+        registry.register(UUID.randomUUID(), "stale", 1L);
+        Thread.sleep(5); // 让 ttl=1ms 的条目过期
+        final UUID fresh = UUID.randomUUID();
+        registry.register(fresh, "fresh", 60_000L);
+        // 新登记前惰性清扫：过期条目不再滞留内存（长在线玩家场景）。
+        assertEquals(1, registry.size());
+        assertTrue(registry.consume(fresh).isPresent());
+    }
 }

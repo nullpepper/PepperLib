@@ -8,10 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -303,5 +309,43 @@ class LanguageBundleTest {
         assertEquals("你好，%name%！", zh.get("greeting"));
         assertThrows(UnsupportedOperationException.class, () -> zh.put("x", "y"));
         assertTrue(bundle.rawMessages("de_DE").isEmpty());
+    }
+
+    @Test
+    void concurrentReloadsNeverCorruptRendering(@TempDir final Path folder) throws Exception {
+        // 回归保护：reload 同步（synchronized）且快照 volatile 换入；多线程并发
+        // reload + 渲染不得抛异常、不得返回半加载态（null / 错误模板）。
+        final LanguageBundle bundle = zhEn(folder);
+        bundle.reload();
+        final int threads = 4;
+        final ExecutorService pool = Executors.newFixedThreadPool(threads);
+        final CountDownLatch start = new CountDownLatch(1);
+        try {
+            final List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threads; i++) {
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    for (int j = 0; j < 50; j++) {
+                        bundle.reload();
+                        final Component greeting = bundle.format("greeting", "name", "Bob");
+                        if (greeting == null) {
+                            throw new AssertionError("null template observed during concurrent reload");
+                        }
+                        final Component fallback = bundle.format("missing.key");
+                        if (fallback == null) {
+                            throw new AssertionError("null fallback observed during concurrent reload");
+                        }
+                    }
+                    return null;
+                }));
+            }
+            start.countDown();
+            for (final Future<?> future : futures) {
+                future.get(15, TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertEquals("你好，Bob！", plain(bundle.format("greeting", "name", "Bob")));
     }
 }

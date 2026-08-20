@@ -22,7 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import org.yaml.snakeyaml.Yaml;
 
 /**
- * 统一 i18n 语言包（设计文档 docs/i18n-unified-design.md）。
+ * 统一 i18n 语言包（内部设计文档 i18n-unified-design）。
  *
  * <p>两阶段渲染：{@link #reload()} 时每个 locale 的每条消息预解析一次并缓存为
  * {@link Component}；渲染阶段仅做占位符替换。回退链：玩家 locale L → 默认 locale →
@@ -96,8 +96,12 @@ public final class LanguageBundle {
     /**
      * （重新）加载语言文件（内置默认值 + 可选的磁盘覆盖配置）并将每个模板预解析为缓存的
      * {@link Component}。新的映射在完全构建好之后才被替换进来。
+     *
+     * <p>线程约束：本方法同步（{@code synchronized}），并发的 {@code reload} 不会交错；
+     * 渲染方法（{@code format*} / {@code raw*}）随时可并发调用——volatile 快照保证
+     * 读者不会观察到半加载态。</p>
      */
-    public void reload() {
+    public synchronized void reload() {
         final Map<String, Map<String, String>> raws = new HashMap<>();
         for (final String locale : this.locales) {
             raws.put(locale, this.loadLocale(locale));
