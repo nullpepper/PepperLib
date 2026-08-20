@@ -36,6 +36,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.mockito:mockito-core:5.23.0")
     testImplementation("io.papermc.paper:paper-api:26.1.2.build.74-stable")
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.1.2:4.115.0")
     // 迁移框架测试使用内存 SQLite（DriverManager 按 jdbc url 加载驱动）。
     testImplementation("org.xerial:sqlite-jdbc:3.46.1.0")
 }
