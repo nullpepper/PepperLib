@@ -37,6 +37,8 @@
   插件 CI 免 token checkout）。
 - 插件 CI 的 `checkout nullpepper/PepperLib → publishToMavenLocal` 步骤生效；
   后续 lib 迭代由插件 CI 自动构建发布。
+- **验证（2026-08）**：三仓库 GitHub Actions 全绿——lib `build`（test+spotless+javadoc）
+  通过；Claim（build+spotlessCheck+spotbugs）通过；Union（build+spotbugs+MariaDB 集成）通过。
 - 备选 B（`PEPPER_MAVEN_URL` 内部仓库）/ C（composite build）不采用。
 
 ## 5. 无单测菜单的迁移验证（已实施，知悉）
