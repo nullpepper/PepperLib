@@ -31,19 +31,13 @@
 **方案**：确认菜单倒计时改为递归 `runTask`（每 20 tick 调度自身，解锁/离线/换页自终止）。
 生产语义与 Bukkit runTaskTimer 等价；代价是每 tick 一个任务对象（仅确认菜单开启的 5 秒内）。
 
-## 4. PepperLib 发布与插件 CI（**待用户决策**）
+## 4. PepperLib 发布与插件 CI（**已解决 2026-08**）
 
-**现状**：
-- lib 0.1.0 已 `publishToMavenLocal`；两插件已切换坐标依赖（本地构建全绿）。
-- **PepperLib 仓库没有 git remote**（未推送 GitHub）。插件 CI 已加
-  `checkout nullpepper/PepperLib → publishToMavenLocal` 步骤——**在 lib 推送前插件 CI 会挂**。
-
-**选项**：
-- **A（推荐）**：推送 PepperLib 到 `github.com/nullpepper/PepperLib`，CI 步骤即可用；
+- **用户决策：方案 A**——PepperLib 已推送至 `github.com/nullpepper/PepperLib`（public，
+  插件 CI 免 token checkout）。
+- 插件 CI 的 `checkout nullpepper/PepperLib → publishToMavenLocal` 步骤生效；
   后续 lib 迭代由插件 CI 自动构建发布。
-- **B**：配置内部 Maven 仓库（设置 `PEPPER_MAVEN_URL` 环境变量），lib 发布到远程仓库，
-  插件 CI 从仓库解析坐标（无需 checkout 步骤）。
-- **C**：插件 CI 保持 composite build（`includeBuild`），仅发布流程用坐标——与计划 §7.5 冲突。
+- 备选 B（`PEPPER_MAVEN_URL` 内部仓库）/ C（composite build）不采用。
 
 ## 5. 无单测菜单的迁移验证（已实施，知悉）
 
@@ -52,12 +46,11 @@ FindGuildMenu 无行为单测；迁移靠逐行等价转换 + 协议层测试（
 GuiManagerOpenPageTest / ConfirmMenuBehaviorTest / PagedMenuSupportTest）覆盖事件链路。
 建议后续补 MockBukkit 抽测（计划风险清单已列）。
 
-## 6. 正式发布目标（**待用户决策**）
+## 6. 正式发布目标（**用户决定：暂不发布**）
 
-0.1.0 发布位置：mavenLocal（已做）。正式发布（插件坐标解析）目标：
-- 内部 Maven 仓库 URL（推荐，`PEPPER_MAVEN_URL` 注入）
-- 或 GitHub Releases + JitPack（lib 为 java-library，不产 shadow jar，JitPack 可解析）
-- 或 Maven Central（需 sonatype 账号，0.1.0 内部库阶段不必要）
+- **用户决策（2026-08）：暂不发布、暂不考虑**。
+- 0.1.0 保持 mavenLocal（本地/CI 经 publishToMavenLocal 可用）；远程发布（内部仓库 /
+  JitPack / Maven Central）挂起，待需要时再定。
 
 ## 7. 阶段 6 验收核对（已实施）
 
