@@ -61,4 +61,14 @@ class PapiExpansionSupportTest {
         Mockito.when(expansion.register()).thenThrow(new IllegalStateException("boom"));
         assertNull(PapiExpansionSupport.register(() -> expansion));
     }
+
+    @Test
+    void returnsNullWhenFactoryThrowsLinkageError() {
+        MockBukkit.load(FakePapiPlugin.class);
+        // PAPI 存在但类损坏/版本错配时，扩展构造抛 NoClassDefFoundError（Error 子类）：
+        // 软依赖兜底必须吞掉，不能中断插件启动。
+        assertNull(PapiExpansionSupport.register(() -> {
+            throw new NoClassDefFoundError("simulated broken PAPI classes");
+        }));
+    }
 }
