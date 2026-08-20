@@ -28,8 +28,8 @@ import org.yaml.snakeyaml.Yaml;
  * {@link Component}；渲染阶段仅做占位符替换。回退链：玩家 locale L → 默认 locale →
  * 回退 locale → 键名（跳过重复）。</p>
  *
- * <p>加载语义：bundled 资源为底，磁盘文件逐键覆盖胜出；磁盘文件缺失时首启复制 bundled；
- * 磁盘 YAML 语法错误或单个坏模板降级回退，绝不中断 reload。全部映射在完整构建后一次性
+ * <p>加载语义：bundled 资源为底，存在的磁盘文件逐键覆盖胜出；磁盘文件缺失时直接使用 bundled，
+ * 不自动写入磁盘。磁盘 YAML 语法错误或单个坏模板降级回退，绝不中断 reload。全部映射在完整构建后一次性
  * 换入（volatile），并发的 {@code format} 不会观察到半加载状态。</p>
  */
 public final class LanguageBundle {
@@ -115,7 +115,7 @@ public final class LanguageBundle {
     }
 
     /**
-     * 加载单个 locale：bundled 资源为底 + 磁盘逐键覆盖；磁盘缺失时首启复制 bundled。
+     * 加载单个 locale：bundled 资源为底 + 已存在的磁盘文件逐键覆盖；磁盘缺失时不写入文件。
      */
     private Map<String, String> loadLocale(final String locale) {
         final String path = "lang/" + locale + ".yml";

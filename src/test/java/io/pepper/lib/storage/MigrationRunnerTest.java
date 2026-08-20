@@ -213,6 +213,23 @@ class MigrationRunnerTest {
     }
 
     @Test
+    void refusesStartWhenHistoricalMigrationWasRemoved() throws Exception {
+        try (Statement statement = this.connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE schema_migrations (version INT PRIMARY KEY, name VARCHAR(255), applied_at BIGINT)");
+            statement.execute("INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, 'removed', 0)");
+        }
+
+        final MigrationRunner runner =
+                new MigrationRunner(List.of(simpleMigration(2, "second", "CREATE TABLE t2 (id INTEGER PRIMARY KEY)")));
+
+        final StorageException e =
+                assertThrows(StorageException.class, () -> runner.run(this.connection, this.dialect));
+        assertTrue(e.getMessage().contains("unknown migration versions [1]"));
+        assertFalse(this.tableExists("t2"), "migration execution must stop before applying later versions");
+    }
+
+    @Test
     void validatesRequiredColumnsAfterMigration() {
         final Migration declaresColumns = new Migration() {
             @Override

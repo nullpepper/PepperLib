@@ -142,6 +142,69 @@ class GuiHostTest {
     }
 
     @Test
+    void bottomShiftClickIsCancelledButNotRouted() {
+        final RecordingHolder holder = new RecordingHolder(this.player);
+        this.host.openGui(holder);
+        this.server.getScheduler().performTicks(1);
+
+        final org.bukkit.inventory.InventoryView view =
+                org.mockito.Mockito.mock(org.bukkit.inventory.InventoryView.class);
+        org.mockito.Mockito.when(view.getTopInventory()).thenReturn(holder.inventory);
+        final InventoryClickEvent event = org.mockito.Mockito.mock(InventoryClickEvent.class);
+        org.mockito.Mockito.when(event.getWhoClicked()).thenReturn(this.player);
+        org.mockito.Mockito.when(event.getView()).thenReturn(view);
+        org.mockito.Mockito.when(event.getClickedInventory()).thenReturn(this.player.getInventory());
+        org.mockito.Mockito.when(event.getAction()).thenReturn(InventoryAction.MOVE_TO_OTHER_INVENTORY);
+
+        this.host.onInventoryClick(event);
+
+        org.mockito.Mockito.verify(event).setCancelled(true);
+        assertEquals(0, holder.clicks.get(), "bottom shift-click must not reach menu business logic");
+    }
+
+    @Test
+    void bottomCollectToCursorIsCancelledButNotRouted() {
+        final RecordingHolder holder = new RecordingHolder(this.player);
+        this.host.openGui(holder);
+        this.server.getScheduler().performTicks(1);
+
+        final org.bukkit.inventory.InventoryView view =
+                org.mockito.Mockito.mock(org.bukkit.inventory.InventoryView.class);
+        org.mockito.Mockito.when(view.getTopInventory()).thenReturn(holder.inventory);
+        final InventoryClickEvent event = org.mockito.Mockito.mock(InventoryClickEvent.class);
+        org.mockito.Mockito.when(event.getWhoClicked()).thenReturn(this.player);
+        org.mockito.Mockito.when(event.getView()).thenReturn(view);
+        org.mockito.Mockito.when(event.getClickedInventory()).thenReturn(this.player.getInventory());
+        org.mockito.Mockito.when(event.getAction()).thenReturn(InventoryAction.COLLECT_TO_CURSOR);
+
+        this.host.onInventoryClick(event);
+
+        org.mockito.Mockito.verify(event).setCancelled(true);
+        assertEquals(0, holder.clicks.get(), "bottom collect must not reach menu business logic");
+    }
+
+    @Test
+    void ordinaryBottomClickPassesThrough() {
+        final RecordingHolder holder = new RecordingHolder(this.player);
+        this.host.openGui(holder);
+        this.server.getScheduler().performTicks(1);
+
+        final org.bukkit.inventory.InventoryView view =
+                org.mockito.Mockito.mock(org.bukkit.inventory.InventoryView.class);
+        org.mockito.Mockito.when(view.getTopInventory()).thenReturn(holder.inventory);
+        final InventoryClickEvent event = org.mockito.Mockito.mock(InventoryClickEvent.class);
+        org.mockito.Mockito.when(event.getWhoClicked()).thenReturn(this.player);
+        org.mockito.Mockito.when(event.getView()).thenReturn(view);
+        org.mockito.Mockito.when(event.getClickedInventory()).thenReturn(this.player.getInventory());
+        org.mockito.Mockito.when(event.getAction()).thenReturn(InventoryAction.PICKUP_ALL);
+
+        this.host.onInventoryClick(event);
+
+        org.mockito.Mockito.verify(event, org.mockito.Mockito.never()).setCancelled(true);
+        assertEquals(0, holder.clicks.get());
+    }
+
+    @Test
     void clickOnNullHolderIsNotCancelled() {
         // 普通箱子（无 holder）/其他插件界面：放行，不进入菜单逻辑（原 GuiManager NPE 修复）。
         final org.bukkit.inventory.Inventory plain = Bukkit.createInventory(null, 27, "plain");
@@ -179,6 +242,27 @@ class GuiHostTest {
         // Union 语义：非归属玩家的点击完全不碰（不取消、不路由）。
         org.mockito.Mockito.verify(event, org.mockito.Mockito.never()).setCancelled(true);
         assertEquals(0, holder.clicks.get(), "foreign player click must not reach the holder");
+    }
+
+    @Test
+    void closeByDifferentPlayerDoesNotReachHolder() {
+        final RecordingHolder holder = new RecordingHolder(this.player);
+        this.host.openGui(holder);
+        this.server.getScheduler().performTicks(1);
+
+        final Player other = org.mockito.Mockito.mock(Player.class);
+        org.mockito.Mockito.when(other.getUniqueId()).thenReturn(UUID.randomUUID());
+        final org.bukkit.inventory.InventoryView view =
+                org.mockito.Mockito.mock(org.bukkit.inventory.InventoryView.class);
+        org.mockito.Mockito.when(view.getTopInventory()).thenReturn(holder.inventory);
+        final org.bukkit.event.inventory.InventoryCloseEvent event =
+                org.mockito.Mockito.mock(org.bukkit.event.inventory.InventoryCloseEvent.class);
+        org.mockito.Mockito.when(event.getPlayer()).thenReturn(other);
+        org.mockito.Mockito.when(event.getView()).thenReturn(view);
+
+        this.host.onInventoryClose(event);
+
+        assertEquals(0, holder.closes.get(), "foreign player close must not invalidate the owner's GUI");
     }
 
     @Test

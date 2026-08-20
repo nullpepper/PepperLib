@@ -83,6 +83,34 @@ class ThreadGuardTest {
     }
 
     @Test
+    void nestedAsyncScopesRemainArmedUntilOutermostExit() {
+        this.guard.setEnforcementEnabled(true);
+        this.guard.enterAsync();
+        this.guard.enterAsync();
+
+        this.guard.exitAsync();
+        assertTrue(this.guard.isInAsync());
+        assertThrows(IllegalStateException.class, () -> this.guard.assertNotAsync());
+
+        this.guard.exitAsync();
+        assertFalse(this.guard.isInAsync());
+    }
+
+    @Test
+    void nestedMainThreadScopesRemainArmedUntilOutermostExit() {
+        this.guard.setEnforcementEnabled(true);
+        this.guard.enterMainThread();
+        this.guard.enterMainThread();
+
+        this.guard.exitMainThread();
+        assertTrue(this.guard.isMainThread());
+        assertThrows(IllegalStateException.class, () -> this.guard.assertMainThreadIo());
+
+        this.guard.exitMainThread();
+        assertFalse(this.guard.isMainThread());
+    }
+
+    @Test
     void instancesAreIsolatedFromEachOther() {
         final ThreadGuard.Instance other = new ThreadGuard.Instance();
         // 两插件各持独立实例：A 的强制/标记不得影响 B（共享类加载场景下的核心属性）。

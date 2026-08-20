@@ -100,8 +100,8 @@ public final class ThreadGuard {
      */
     public static final class Instance {
 
-        private final ThreadLocal<Boolean> inAsync = ThreadLocal.withInitial(() -> Boolean.FALSE);
-        private final ThreadLocal<Boolean> inMainThread = ThreadLocal.withInitial(() -> Boolean.FALSE);
+        private final ThreadLocal<Integer> asyncDepth = ThreadLocal.withInitial(() -> 0);
+        private final ThreadLocal<Integer> mainThreadDepth = ThreadLocal.withInitial(() -> 0);
         private volatile boolean enforcementEnabled;
 
         /** 创建独立守卫实例。 */
@@ -117,15 +117,20 @@ public final class ThreadGuard {
         }
 
         public boolean isInAsync() {
-            return Boolean.TRUE.equals(this.inAsync.get());
+            return this.asyncDepth.get() > 0;
         }
 
         public void enterAsync() {
-            this.inAsync.set(Boolean.TRUE);
+            this.asyncDepth.set(this.asyncDepth.get() + 1);
         }
 
         public void exitAsync() {
-            this.inAsync.remove();
+            final int depth = this.asyncDepth.get();
+            if (depth <= 1) {
+                this.asyncDepth.remove();
+            } else {
+                this.asyncDepth.set(depth - 1);
+            }
         }
 
         /** 在 Async 阶段调用主线程等待时应先调用此方法；启用守卫时抛错。 */
@@ -142,15 +147,20 @@ public final class ThreadGuard {
 
         /** 主线程 tick 回调入口标记（维护 tick 包装；强制开启时主线程 Storage/文件 IO 即炸）。 */
         public void enterMainThread() {
-            this.inMainThread.set(Boolean.TRUE);
+            this.mainThreadDepth.set(this.mainThreadDepth.get() + 1);
         }
 
         public void exitMainThread() {
-            this.inMainThread.remove();
+            final int depth = this.mainThreadDepth.get();
+            if (depth <= 1) {
+                this.mainThreadDepth.remove();
+            } else {
+                this.mainThreadDepth.set(depth - 1);
+            }
         }
 
         public boolean isMainThread() {
-            return Boolean.TRUE.equals(this.inMainThread.get());
+            return this.mainThreadDepth.get() > 0;
         }
 
         /** 主线程 IO 断言：强制开启且处于主线程标记 → 抛错（拒绝主线程 Storage/文件 IO）。 */

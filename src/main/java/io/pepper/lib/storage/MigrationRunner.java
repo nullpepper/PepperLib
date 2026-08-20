@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -102,15 +103,14 @@ public final class MigrationRunner {
      * 继续启动会带着「旧 schema 新代码」的未知状态，直接拒绝启动。
      */
     private void verifyNoRemovedMigrations(final Set<Integer> applied) {
-        if (this.migrations.isEmpty()) {
-            return;
+        final Set<Integer> known = new HashSet<>();
+        for (final Migration migration : this.migrations) {
+            known.add(migration.version());
         }
-        final int maxKnown = this.migrations.get(this.migrations.size() - 1).version();
-        final int maxApplied =
-                applied.stream().mapToInt(Integer::intValue).max().orElse(0);
-        if (maxApplied > maxKnown) {
-            throw new StorageException("Database schema is at version " + maxApplied + " but this plugin build only "
-                    + "knows migrations up to version " + maxKnown
+        final Set<Integer> unknown = new TreeSet<>(applied);
+        unknown.removeAll(known);
+        if (!unknown.isEmpty()) {
+            throw new StorageException("Database contains unknown migration versions " + unknown
                     + " — migrations were removed or the plugin was downgraded; refusing to start");
         }
     }

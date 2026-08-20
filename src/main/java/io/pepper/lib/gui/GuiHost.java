@@ -9,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -172,12 +173,12 @@ public final class GuiHost implements Listener {
         // 其他插件界面）时直接放行，不进入本插件菜单逻辑。
         if (gui != null
                 && GuiEventGuards.belongsTo(gui.getPlayer(), ((Player) event.getWhoClicked()).getUniqueId())
-                && event.getClickedInventory() == view.getTopInventory()) {
+                && this.mayAffectTop(event, view)) {
             // 先取消再判断 disabled：插件禁用/重载期间打开的界面可能没有被关闭，
             // 不能放任玩家对界面物品进行搬移（移出=免费获得物品，移入=物品丢失）。
             // 其他插件/普通箱子的界面不受影响。
             event.setCancelled(true);
-            if (disabled) {
+            if (disabled || event.getClickedInventory() != view.getTopInventory()) {
                 return;
             }
             gui.onClick(
@@ -190,6 +191,14 @@ public final class GuiHost implements Listener {
                     view,
                     event);
         }
+    }
+
+    private boolean mayAffectTop(final InventoryClickEvent event, final InventoryView view) {
+        if (event.getClickedInventory() == view.getTopInventory()) {
+            return true;
+        }
+        return event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                || event.getAction() == InventoryAction.COLLECT_TO_CURSOR;
     }
 
     @EventHandler
@@ -218,7 +227,7 @@ public final class GuiHost implements Listener {
             return;
         }
         final GuiHolder gui = getInventoryHolder(event.getView().getTopInventory());
-        if (gui != null) {
+        if (gui != null && GuiEventGuards.belongsTo(gui.getPlayer(), ((Player) event.getPlayer()).getUniqueId())) {
             gui.onClose(event.getView());
         }
     }
