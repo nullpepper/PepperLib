@@ -2,10 +2,12 @@ plugins {
     `java-library`
     `maven-publish`
     id("com.diffplug.spotless") version "8.9.0"
+    // 二进制兼容门：0.2.x 允许新增 API，不允许删除/签名变更（japicmp 基线见下）。
+    id("me.champeau.gradle.japicmp") version "0.4.5"
 }
 
 group = "io.pepper"
-version = "0.1.0"
+version = "0.2.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {
@@ -77,6 +79,8 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+    // 产物守卫测试（ArtifactContentGuardTest）读取 pepper-lib JAR。
+    dependsOn(tasks.jar)
 }
 
 // javadoc 纳入绿门（check）：doclint reference error 直接阻断构建，防止文档腐化。
@@ -106,4 +110,23 @@ publishing {
             }
         }
     }
+}
+
+// 二进制兼容门（发布面，§10）：基线 = 上一发布版本坐标（默认 mavenLocal 的 0.1.0，
+// 可用环境变量 PEPPER_LIB_BASELINE_JAR 覆盖）。0.2.x 允许新增 API，禁止删除/
+// 签名变更（0.1.0 之后发布的版本逐步接入 CI）。
+val japicmpBaseline =
+    providers.environmentVariable("PEPPER_LIB_BASELINE_JAR")
+        .orElse("${System.getProperty("user.home")}/.m2/repository/io/pepper/pepper-lib/0.1.0/pepper-lib-0.1.0.jar")
+
+val japicmp = tasks.register<me.champeau.gradle.japicmp.JapicmpTask>("japicmp") {
+    group = "verification"
+    description = "与上一发布版本（0.1.0）做二进制兼容性比较；破坏性变更即失败。"
+    oldClasspath = files(japicmpBaseline)
+    newClasspath = files(tasks.jar)
+    // 外部依赖类型（Paper/PAPI/Vault 为 compileOnly）不参与比较；只分析库自身 API。
+    ignoreMissingClasses = true
+    onlyModified = true
+    failOnModification = false // 允许新增 API（0.2.x 政策）
+    // failOnBinaryIncompatibleModification 默认 true：删除/签名变更即失败。
 }
