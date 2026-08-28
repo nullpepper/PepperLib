@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  */
 class ArtifactContentGuardTest {
 
-    private static final Path JAR = Path.of("build/libs/pepper-lib-0.6.0.jar");
+    private static final Path JAR = Path.of("build/libs/pepper-lib-0.8.0.jar");
 
     private static Set<String> entries() throws IOException {
         try (ZipFile zip = new ZipFile(JAR.toFile())) {
@@ -53,6 +53,10 @@ class ArtifactContentGuardTest {
             "io/pepper/lib/confirm/ConfirmRegistry.class",
             "io/pepper/lib/money/Amounts.class",
             "io/pepper/lib/validation/Preconditions.class",
+            "io/pepper/lib/world/InstanceWorldService.class",
+            "io/pepper/lib/world/WorldProviderError.class",
+            "io/pepper/lib/persist/PersistentStore.class",
+            "io/pepper/lib/persist/StoreCodec.class",
         }) {
             assertTrue(entries.contains(required), "library jar must contain " + required);
         }

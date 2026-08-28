@@ -4,6 +4,81 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.9.0] - 2026-09-02
+
+### 新增
+
+- **通用 GUI 设施下沉**（来源：PepperUnion gui 包，跨插件单一来源）：
+  - `io.pepper.lib.gui.PageGuide<T>`：菜单分页器（内容槽/上下页按钮/页码
+    信息槽/去事件化翻页 `handlePageSlot`/`setItemTransformer`；页码计算复用
+    `Pagination.pageCount`）；
+  - `io.pepper.lib.gui.GuiKit`：箱子 GUI 物品/文本构造（pane/namedItem/
+    legacy/contentSlots）；
+  - `io.pepper.lib.gui.PageSession`：菜单会话基类（玩家引用/库存/渲染上下文
+    守卫/回主线程/异步槽位刷新 `refreshSlot`/安全发消息 `send`）。
+
+## [0.8.0] - 2026-08-25
+
+### 新增
+
+- **可持久化泛型键值存储** `io.pepper.lib.persist`（双消费者共设计：
+  PVP 竞技场的地图/模板配置与比赛结果持久化 + 漂流瓶插件类似需求）：
+  - `PersistentStore<K, V>`：构造时全量加载（文件缺失 → 空表；损坏 →
+    `IOException` 构造失败即暴露）；`put`/`remove` 修改异步写盘（写中合并、
+    单飞——写盘期间的修改并入下一次写）；`flush()` 同步落盘兜底
+    （关闭/检查点防丢最后一批修改）；`snapshot()` 不可变快照；
+  - 原子写崩溃一致：先写同目录临时文件再原子 rename（不支持原子移动的
+    文件系统退化为普通替换，仍无中间态写入目标文件）；异步写失败保留
+    dirty 状态（下次修改重试）+ 日志；
+  - `StoreCodec<K, V>` 整表序列化接口（纯 JDK 零第三方依赖，Gson/Jackson
+    由消费者注入实现）；`PersistentStores.fileBacked(file, codec, executor)`
+    工厂（executor 须串行，建议单线程池）。
+  - 测试：写入落盘/回读回环、加载回环、remove、异步突发合并（20 次连续
+    修改最终一致落盘）、原子写无临时文件残留、损坏文件加载抛异常、
+    snapshot 不可变、flush 幂等。
+
+> 提取纪律案例：双消费者（PVP 竞技场 + 漂流瓶）确认同构需求，以 Experimental
+> 状态进入；两消费者接入并上线后转正冻结。
+
+### 变更
+
+- 版本 0.7.0 → 0.8.0（前置插件 apiVersion 与发布坐标同步）。
+
+## [0.7.0] - 2026-08-25
+
+### 新增
+
+- **世界实例能力（Experimental）** `io.pepper.lib.world`（双消费者共设计：
+  PVP/PVE 竞技场插件，语义一致「结束 → 清场 → 卸载实例」）：
+  - `InstanceWorldService`：与具体 Slime 实现解耦的异步 SPI（`create` / `find` /
+    `instances` / `unload` / `unloadAll`），模板读取异步、Bukkit 操作回主线程；
+    失败经 `WorldProviderException` + 稳定错误码 `WorldProviderError`（8 码）表达，
+    provider 缺失返回 `PROVIDER_UNAVAILABLE`，不降级为普通 Bukkit 世界；
+  - `WorldTemplateRef`（id + 绝对路径，id 限 `[a-z0-9_-]+`）/ `WorldInstanceRequest` /
+    `WorldInstance`（五态状态机）/ `UnloadOptions`（业务卸载 `discardWhenEmpty`
+    与关闭清理 `discardForShutdown` 两种语义）/ `WorldProviderInfo`；
+  - 能力标注 `@MinMinecraftVersion("1.18", "world-instance")`（
+    `PepperLibRuntime.CAP_WORLD_INSTANCE`），守卫测试防漂移；
+  - 部署契约：仅前置插件模式（shade 消费者因类重定位无法经 ServicesManager 互通）。
+- **可选 provider 子项目 `pepper-lib-aswm-provider`**（独立薄 jar，非 PepperLib.jar
+  一部分）：基于唯一公开发布产物 `com.infernalsuite.aswm:api:3.0.0`
+  （Advanced Slime Paper API），`AdvancedSlimePaperAPI.instance()` 运行时探测，
+  不可用则自禁并诊断；模板单文件只读 `SlimeLoader` + 内存模板缓存
+  （`SlimeWorld.clone` 每实例一份活体世界）；三重防落盘
+  （readOnly + `unloadWorld(save=false)` + autoSave 关闭）；11 项 MockBukkit
+  测试覆盖创建/查询/卸载/冲突/失败清理/关闭语义。
+  > 依赖说明：aswm-api 的 POM 传递依赖 flow-nbt 2.0.2 仅发布于已失效的 rapture
+  > 仓库，本工程排除该传递依赖并以 Maven Central 的 flow-nbt 1.0.0 满足 javac
+  > 签名解析（工程零 flow-nbt 代码，运行时由 ASP 环境提供）。
+
+> 提取纪律案例：本能力为双消费者共设计（规格一致、代码未先存在），非「两插件
+> 已有一致语义」的提取——按 README 纪律以 Experimental 状态进入，两插件接入
+> 并上线后转正冻结（避免 GuiItemFactory 零消费者 Experimental 的前车之鉴）。
+
+### 变更
+
+- 版本 0.6.0 → 0.7.0（前置插件 apiVersion 与发布坐标同步）。
+
 ## [0.6.0] - 2026-08-20
 
 ### 新增

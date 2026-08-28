@@ -22,6 +22,14 @@ public interface PepperLibRuntime {
     String CAP_GUI_HOST = "gui-host";
 
     /**
+     * world-instance 特性能力名（{@code io.pepper.lib.world.InstanceWorldService} 及
+     * 相关类型）。公共签名只引用稳定 Bukkit 类型（{@code org.bukkit.World}），
+     * 最低版本取库基线 1.18。注意：本能力只声明「库内 API 存在」；provider 是否
+     * 可用需另经 ServicesManager 探测 {@code InstanceWorldService} 注册。
+     */
+    String CAP_WORLD_INSTANCE = "world-instance";
+
+    /**
      * 前置插件提供的 PepperLib API 版本（如 {@code "0.5.0"}，与发布坐标版本一致）。
      *
      * @return 版本号字符串

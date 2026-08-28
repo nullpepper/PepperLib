@@ -29,6 +29,9 @@ class CapabilityAnnotationScannerTest {
     void registryContainsOnlyAnnotatedCapabilities() {
         final Map<String, int[]> registry =
                 CapabilityAnnotationScanner.scan(CapabilityAnnotationScanner.class.getClassLoader());
-        assertEquals(Set.of(PepperLibRuntime.CAP_GUI_HOST), registry.keySet());
+        assertEquals(
+                Set.of(PepperLibRuntime.CAP_GUI_HOST, PepperLibRuntime.CAP_WORLD_INSTANCE),
+                registry.keySet(),
+                "能力注册表 = 全部 @MinMinecraftVersion 标注类的能力集合（gui-host + world-instance）");
     }
 }

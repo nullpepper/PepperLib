@@ -33,11 +33,17 @@ class BuildInfraGuardTest {
             "5.23.0", // mockito-core
             "3.46.1.0", // sqlite-jdbc
             "2.11.6", // placeholderapi
-            "26.0.1" // jetbrains annotations
+            "26.0.1", // jetbrains annotations
+            "3.0.0" // aswm-api
+            // flow-nbt 1.0.0 未列入：与 shaded-example 自身项目版本号（"1.0.0"）冲突；
+            // 其版本已入版本目录，靠 BUILD_FILES 扫描防未来漂移。
             );
 
     private static final List<String> BUILD_FILES = List.of(
-            "build.gradle.kts", "pepper-lib-plugin/build.gradle.kts", "pepper-lib-shaded-example/build.gradle.kts");
+            "build.gradle.kts",
+            "pepper-lib-plugin/build.gradle.kts",
+            "pepper-lib-shaded-example/build.gradle.kts",
+            "pepper-lib-aswm-provider/build.gradle.kts");
 
     @Test
     void checkWiresJapicmp() {

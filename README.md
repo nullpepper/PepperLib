@@ -24,6 +24,49 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
   `economy` / `papi` / `task` 的公共签名耦合 Bukkit 类型；`money` / `validation` / `storage`
   为纯 Java 模块（详见各包 `package-info` 耦合度标注）。
 
+## 实例世界能力（Experimental）
+
+`io.pepper.lib.world` 提供与具体 Slime 实现解耦的异步实例世界 SPI，供 PVP/PVE
+竞技场插件（双消费者共设计，语义一致：比赛结束 → 清场 → 卸载实例）使用：
+
+- **能力声明**：`PepperLibRuntime.supports("world-instance")`（最低版本 1.18，
+  公共签名只引用稳定 Bukkit 类型）；provider 可用性另经 ServicesManager 探测。
+- **失败模型**：`WorldProviderException` + 稳定错误码 `WorldProviderError`
+  （8 码）；provider 缺失返回 `PROVIDER_UNAVAILABLE`，**绝不降级为普通 Bukkit 世界**。
+- **隔离契约**：每个实例是独立活体世界（独立区块/实体/容器）；实例修改仅存在于
+  实例生命周期内，卸载即丢弃（`UnloadOptions.discardWhenEmpty()`），永不写回模板。
+- **部署契约（前置模式）**：跨插件服务互通依赖服务器单一实例的
+  `io.pepper.lib.*` 类；shade 消费者因类重定位无法经 ServicesManager 互通。
+- **可选 provider**：`pepper-lib-aswm-provider`（独立薄 jar，非 PepperLib.jar 一部分），
+  基于唯一公开发布的 `com.infernalsuite.aswm:api:3.0.0`（Advanced Slime Paper）。
+  注意：InfernalSuite 官方项目已从插件转为 **ASP 服务端 fork**（见
+  [官方仓库](https://github.com/InfernalSuite/AdvancedSlimePaper)），provider 在
+  运行时探测 `AdvancedSlimePaperAPI.instance()`，不可用（普通 Paper 环境）时
+  禁用自身并给出诊断——服务器部署形态（ASP fork vs 旧插件线）由运营侧决策，
+  provider 以探测降级兼容两种环境。
+
+消费示例：
+
+```java
+RegisteredServiceProvider<InstanceWorldService> registration =
+        Bukkit.getServicesManager().getRegistration(InstanceWorldService.class);
+if (registration == null) {
+    // provider 缺失 → 竞技场进入不可用状态（不降级为普通世界）
+    return;
+}
+InstanceWorldService worlds = registration.getProvider();
+WorldTemplateRef template = new WorldTemplateRef(
+        "arena-desert", getDataFolder().toPath().resolve("templates/arena-desert.slime"));
+worlds.create(new WorldInstanceRequest(template, "match-" + matchUuid))
+        .thenAccept(instance -> Bukkit.getScheduler().runTask(this, () -> {
+            World world = instance.world(); // 仅主线程
+            // 设置出生点、传送玩家、初始化比赛
+        }))
+        .exceptionally(error -> { /* 按 error() 分支处理 */ return null; });
+// 比赛结束：先清场，再卸载
+worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
+```
+
 ## 低版本服务器支持（自适应加载）
 
 - **检测与决策**：前置插件 `onEnable` 扫描 classpath 中 `io.pepper.lib` 类的
@@ -45,7 +88,7 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
   ——Paper 26.x 对 paper-plugin.yml 有 api-version 下限校验（1.18 too old），而
   plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被接受（真实服务器验证）。
 
-## 内容（公共 API，0.6.0）
+## 内容（公共 API，0.8.0）
 
 | 包 | 类型 | 状态 |
 |---|---|---|
@@ -60,6 +103,8 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
 | `io.pepper.lib.money` | `Amounts` | 已接入（两插件金额） |
 | `io.pepper.lib.economy` | `VaultSupport` | 已接入（两插件 Vault 解析） |
 | `io.pepper.lib.papi` | `PapiExpansionSupport` | 已接入（两插件 PAPI 注册） |
+| `io.pepper.lib.persist` | `PersistentStore` / `StoreCodec` / `PersistentStores` | **Experimental**：双消费者共设计（PVP 竞技场 + 漂流瓶插件）——全量加载、修改异步写盘（写中合并 + 原子写崩溃一致 + flush 同步兜底），纯 JDK（codec 消费者注入） |
+| `io.pepper.lib.world` | `InstanceWorldService` / `WorldInstance` / `WorldTemplateRef` / `WorldInstanceRequest` / `UnloadOptions` / `WorldInstanceState` / `WorldProviderInfo` / `WorldProviderException` / `WorldProviderError` | **Experimental**：双消费者共设计（PVP/PVE 竞技场插件，语义一致：结束→清场→卸载）；provider 经 ServicesManager 注册（仅前置模式）；可选实现见 `pepper-lib-aswm-provider`（详见下方「实例世界能力」） |
 | `io.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
 | `io.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
 
