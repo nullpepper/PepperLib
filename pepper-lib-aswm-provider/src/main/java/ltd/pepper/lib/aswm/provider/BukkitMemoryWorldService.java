@@ -197,20 +197,19 @@ class BukkitMemoryWorldService implements InstanceWorldService {
             Files.createDirectories(tmpDir);
             Files.copy(source, tmpDir.resolve(source.getFileName()), StandardCopyOption.REPLACE_EXISTING);
         }
-        // 在服务端世界容器创建符号链接 -> 插件 tmp 实际目录
-        final Path link = worldContainerPath().resolve(worldName);
+        // 在服务端世界容器真实复制模板数据（Purpur 26.2：Bukkit.createWorld 会
+        // 清理容器中同名符号链接并生成全新世界——symlink 方案失效；真实复制保证
+        // createWorld 加载到已有区块/建筑）。空间成本 = 模板大小/实例，可接受。
+        final Path worldContainerDir = worldContainerPath().resolve(worldName);
         try {
-            if (Files.exists(link) || Files.isSymbolicLink(link)) {
-                Files.deleteIfExists(link);
+            if (Files.isSymbolicLink(worldContainerDir)) {
+                Files.deleteIfExists(worldContainerDir);
+            } else if (Files.exists(worldContainerDir)) {
+                deleteRecursively(worldContainerDir);
             }
-            Files.createSymbolicLink(link, tmpDir);
-        } catch (final IOException | UnsupportedOperationException e) {
-            // Windows 或无 symlink 权限：回退为直接复制到世界容器
-            plugin.getLogger().warning("符号链接创建失败，回退为直接复制到世界容器: " + e.getMessage());
-            final Path worldContainerDir = worldContainerPath().resolve(worldName);
-            if (!Files.exists(worldContainerDir)) {
-                copyDirectory(tmpDir, worldContainerDir);
-            }
+            copyDirectory(tmpDir, worldContainerDir);
+        } catch (final IOException e) {
+            throw new IOException("世界容器复制失败: " + worldContainerDir, e);
         }
     }
 
