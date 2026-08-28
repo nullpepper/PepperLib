@@ -16,7 +16,7 @@ import ltd.pepper.lib.runtime.ServerVersions;
  * {@code @MinMinecraftVersion} 注解扫描器（注解驱动能力决策）。
  *
  * <p>定位 {@code MinMinecraftVersion} 类所在 CodeSource（前置插件 jar 或测试
- * classes 目录），遍历其中 {@code io/pepper/lib} 前缀的全部类，读取类级注解，
+ * classes 目录），遍历其中 {@code ltd/pepper/lib} 前缀的全部类，读取类级注解，
  * 聚合为 {@code capability → 最低版本} 注册表。同能力多类冲突时取最严值
  * （版本较高者）；类加载失败（如低版本服务器缺可选依赖）时跳过该类的注解，
  * 绝不让前置插件启动崩溃。</p>
@@ -26,7 +26,7 @@ import ltd.pepper.lib.runtime.ServerVersions;
 final class CapabilityAnnotationScanner {
 
     /** 扫描的包前缀（资源路径形态）。 */
-    private static final String PACKAGE_PREFIX = "io/pepper/lib";
+    private static final String PACKAGE_PREFIX = "ltd/pepper/lib";
 
     /** 定位用标记类：与其同一 CodeSource 的所有库类一并扫描。 */
     private static final String MARKER_CLASS = "ltd.pepper.lib.runtime.MinMinecraftVersion";

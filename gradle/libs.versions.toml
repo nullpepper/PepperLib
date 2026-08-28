@@ -12,8 +12,6 @@ mockito = "5.23.0"
 sqlite = "3.46.1.0"
 aswm = "3.0.0"
 # 本地构建的 ASWM fork（vjh0107，支持 MC 26.1.2）API jar；文件依赖避免 publish 依赖。
-aspApiLocal = "/home/pepper/projects/aswm-build/api/build/libs/api-4.2.0-SNAPSHOT.jar"
-flownbt = "1.0.0"
 palantirJavaFormat = "2.97.0"
 spotless = "8.9.0"
 shadow = "9.2.2"
@@ -32,9 +30,6 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 aswm-api = { module = "com.infernalsuite.aswm:api", version.ref = "aswm" }
 # fork 重命名为 com.infernalsuite.asp.api；文件依赖本地构建产物（MC 26.1.2）。
-asp-api = { module = "com.infernalsuite.asp:api", version = "4.2.0-SNAPSHOT" }
-# flow-nbt 仅编译期满足 aswm-api 签名解析（2.0.2 在已失效 rapture 仓库，见 provider 构建注释）。
-flow-nbt = { module = "com.flowpowered:flow-nbt", version.ref = "flownbt" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

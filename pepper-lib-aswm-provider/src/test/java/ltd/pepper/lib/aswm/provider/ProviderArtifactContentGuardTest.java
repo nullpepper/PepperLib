@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
  */
 class ProviderArtifactContentGuardTest {
 
-    private static final Path JAR = Path.of("build/libs/pepper-lib-aswm-provider-0.8.0.jar");
+    private static final Path JAR = Path.of("build/libs/pepper-lib-aswm-provider-0.9.0.jar");
 
     private static Set<String> entries() throws IOException {
         try (ZipFile zip = new ZipFile(JAR.toFile())) {
@@ -31,7 +31,7 @@ class ProviderArtifactContentGuardTest {
         assertTrue(Files.isRegularFile(JAR), "run ./gradlew jar first (test task depends on it)");
         final Set<String> entries = entries();
         assertTrue(entries.contains("plugin.yml"), "provider jar must carry plugin.yml");
-        assertTrue(entries.contains("io/pepper/lib/aswm/provider/PepperLibAswmProviderPlugin.class"));
+        assertTrue(entries.contains("ltd/pepper/lib/aswm/provider/PepperLibAswmProviderPlugin.class"));
     }
 
     @Test
@@ -41,7 +41,7 @@ class ProviderArtifactContentGuardTest {
         assertFalse(
                 entries.stream()
                         .filter(e -> e.endsWith(".class"))
-                        .anyMatch(e -> e.startsWith("io/pepper/lib/") && !e.startsWith("io/pepper/lib/aswm/")),
+                        .anyMatch(e -> e.startsWith("ltd/pepper/lib/") && !e.startsWith("ltd/pepper/lib/aswm/")),
                 "provider jar must not bundle PepperLib core classes (provided by PepperLib front-end plugin)");
         assertFalse(
                 entries.stream()
