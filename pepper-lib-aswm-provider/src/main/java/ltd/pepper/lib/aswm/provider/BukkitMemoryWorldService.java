@@ -68,9 +68,22 @@ class BukkitMemoryWorldService implements InstanceWorldService {
         return this.tmpRoot;
     }
 
-    /** 世界容器路径（Bukkit 默认取 {@code Bukkit.getWorldContainer()}；测试可覆写）。 */
+    /**
+     * 世界容器路径（Purpur 26.2 的维度容器）。
+     *
+     * <p>{@code Bukkit.getWorldContainer()} 在 Purpur 26.2 返回服务器根目录
+     * （/data）而非维度目录——实例世界复制到那里 createWorld 读不到（新建空壳）。
+     * 维度容器 = 主世界文件夹的父目录（world/dimensions/minecraft）；测试可覆写。</p>
+     */
     protected Path worldContainerPath() {
-        return Bukkit.getWorldContainer().toPath();
+        final World overworld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        if (overworld != null) {
+            final Path parent = overworld.getWorldFolder().toPath().toAbsolutePath().normalize().getParent();
+            if (parent != null) {
+                return parent;
+            }
+        }
+        return Bukkit.getWorldContainer().toPath().resolve("world/dimensions/minecraft");
     }
 
     @Override
