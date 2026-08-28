@@ -3,7 +3,7 @@
 > Verdict: **green**
 
 ## Spec
-- Goal: 按 docs/i18n-unified-design.md 实现统一 i18n 机制：lib 新增 io.pepper.lib.i18n 包（LanguageBundle/TextValue/LocaleResolver/PlaceholderResolver/PapiPlaceholderResolver），Claim 与 Union 的 LanguageManager 瘦身为薄壳且全部调用点零改动，三仓库全绿。
+- Goal: 按 docs/i18n-unified-design.md 实现统一 i18n 机制：lib 新增 ltd.pepper.lib.i18n 包（LanguageBundle/TextValue/LocaleResolver/PlaceholderResolver/PapiPlaceholderResolver），Claim 与 Union 的 LanguageManager 瘦身为薄壳且全部调用点零改动，三仓库全绿。
 - Scope: lib i18n 包 + 测试；lib build.gradle.kts 加 PAPI compileOnly + testImplementation + extendedclip 仓库；Claim 壳（保留 render/raw 4 参/effectiveLocale/setLocaleOverride/loadLocaleOverrides/clearLocaleOverride/rawMessages，递归废弃）；Union 壳（保留 format 两形态/formatForPlayer 两形态/literal 标记兼容/raw，删 formatText 与 papi/PapiSupport.java，装配 PapiPlaceholderResolver.INSTANCE）；三仓库提交推送；adoption-decisions.md 追加条目。
 - Acceptance criteria: ① lib i18n 包约 17 个测试全绿（§11 清单）；② lib spotless+javadoc+全量测试通过并 publishToMavenLocal；③ Claim 全部现有测试绿 + 新增「值=语言键不再重译」用例；④ Union 全部现有测试绿 + 标记字符兼容用例；⑤ 两个插件 git diff 不含任何调用点改动（除删除 PapiSupport/formatText）；⑥ 三仓库提交并推送成功。
 - Failure modes: 壳转换层漏识别 \uE000 标记 → 用户内容被当 mini 解析（标记兼容用例钉死）；Claim 值净化收紧影响未预见调用点 → 全键快照测试兜底；递归废弃后值命中语言键 → 新用例固化原样渲染；PAPI compileOnly 缺失 → 测试 NoClassDefFoundError（testImplementation 补 jar）；formatForPlayer 无 resolver 时需走缓存模板路径（不重复解析）。
@@ -15,11 +15,11 @@
 - passing runs: 0
 
 - [spec] 通读 PepperClaim 与 PepperUnion 全部源码，识别出 PepperLib-Extraction-Plan.md 计划之外的、可抽象提取进 PepperLib 的公共代码，产出带源码证据的分析报告和可落地的 API 草案…
-- [spec] 创建与 PepperClaim/PepperUnion 平级的独立可构建 PepperLib Gradle 项目（~/projects/PepperLib），实现 io.pepper.lib 的 validation/gui/task/st…
+- [spec] 创建与 PepperClaim/PepperUnion 平级的独立可构建 PepperLib Gradle 项目（~/projects/PepperLib），实现 ltd.pepper.lib 的 validation/gui/task/st…
 - [spec] 把 PepperClaim 与 PepperUnion 的重复分页/事件守卫/迁移框架切换到 PepperLib 共享实现（计划阶段 5/6 核心件 + storage 契约统一），两插件测试保持全绿，各自独立提交。
 - [spec] 把 PepperClaim 的 GUI 协议层接入 PepperLib：监听器构造 GuiClick、异步 flags/preset 刷新用 GuiSessionId 防旧页面覆盖、ClaimGui 实现 GuiPage 协议，保持行为与测…
 - [spec] 把 PepperClaim 的 GUI 协议层接入 PepperLib：监听器构造 GuiClick、异步 flags/preset 刷新用 GuiSessionId 防旧页面覆盖，保持行为与测试全绿。
-- [spec] 按 docs/i18n-unified-design.md 实现统一 i18n 机制：lib 新增 io.pepper.lib.i18n 包（LanguageBundle/TextValue/LocaleResolver/Placehold…
+- [spec] 按 docs/i18n-unified-design.md 实现统一 i18n 机制：lib 新增 ltd.pepper.lib.i18n 包（LanguageBundle/TextValue/LocaleResolver/Placehold…
 
 ## Adversary review
 No adversary review ran for this session.
@@ -33,7 +33,7 @@ Not run.
 ## Session evidence（本次实施的真实运行记录）
 
 ### Red runs（红步证据）
-1. `./gradlew test --tests "io.pepper.lib.i18n.*"`（骨架 stub）→ **22 tests completed, 22 failed**（UnsupportedOperationException，缺失行为）
+1. `./gradlew test --tests "ltd.pepper.lib.i18n.*"`（骨架 stub）→ **22 tests completed, 22 failed**（UnsupportedOperationException，缺失行为）
 2. `rawForLocaleResolvesChainForGivenLocale`（方法退回 stub）→ **1 failed**（UnsupportedOperationException）
 
 ### Green runs（绿步证据）

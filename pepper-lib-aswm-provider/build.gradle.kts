@@ -3,10 +3,10 @@ plugins {
     id("pepper.spotless")
 }
 
-group = "io.pepper"
+group = "ltd.pepper"
 version = project(":").version
 
-description = "PepperLib 可选 provider：基于 Advanced Slime Paper API 的实例世界服务实现（io.pepper.lib.world）。"
+description = "PepperLib 可选 provider：基于 Advanced Slime Paper API 的实例世界服务实现（ltd.pepper.lib.world）。"
 
 repositories {
     maven {

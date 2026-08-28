@@ -6,13 +6,13 @@
 ## 0. 目标与验收标准
 
 **目标**：两插件的 `scheduler/Scheduler` + `scheduler/PaperScheduler` 与 `util/Amounts` 删除，
-机制并入 PepperLib（`PepperScheduler` 遗留别名 + `BukkitPepperScheduler` + `io.pepper.lib.money.Amounts`），
+机制并入 PepperLib（`PepperScheduler` 遗留别名 + `BukkitPepperScheduler` + `ltd.pepper.lib.money.Amounts`），
 三仓库全绿。
 
 **验收**：
 1. lib `PepperScheduler` 新增 3 个 legacy 别名 default 方法，别名→规范名委托契约测试绿；
 2. lib `BukkitPepperScheduler`（mockbukkit 测试：主线程判定 / runTask / runAsync / runRepeating / supplyOnMain）绿；
-3. lib `io.pepper.lib.money.Amounts` 超集测试绿（Union AmountsTest + Claim AmountsTest 断言并集）；
+3. lib `ltd.pepper.lib.money.Amounts` 超集测试绿（Union AmountsTest + Claim AmountsTest 断言并集）；
 4. Claim/Union 的 scheduler 包与 util/Amounts 删除；全部引用文件类型替换后两插件全量测试绿；
 5. 显示语义零变化（Claim 4 处 `formatFixed` 保持 2 位小数；Union 37 处 `format` 保持去尾零）；
 6. 三仓库提交推送（lib → main、Claim → main、Union → master）。
@@ -41,7 +41,7 @@
    - `default void runTaskTimer(Runnable task, long delayTicks, long periodTicks) { runRepeating(task, delayTicks, periodTicks); }`
    - `default <T> CompletableFuture<T> supplyOnMainThread(Supplier<T> supplier) { return supplyOnMain(supplier); }`
    - 规范名保持抽象（lib 原有 API 不变）；`runTask`/`isMainThread` 两边同名无需别名。
-2. **新增 `io.pepper.lib.task.BukkitPepperScheduler implements PepperScheduler`**：移植双份 PaperScheduler
+2. **新增 `ltd.pepper.lib.task.BukkitPepperScheduler implements PepperScheduler`**：移植双份 PaperScheduler
    （构造 `JavaPlugin`；`isMainThread → Bukkit.isPrimaryThread()`；`runTask → runTask`；
    `runAsync → runTaskAsynchronously`；`runRepeating → runTaskTimer`；`supplyOnMain → supplyAsync(runner)`）。
 3. **新测试**：
@@ -55,8 +55,8 @@
 
 1. 删除 Claim/Union `scheduler/Scheduler.java` + `scheduler/PaperScheduler.java`（4 文件）；
 2. 插件主类字段：`private final PepperScheduler scheduler = new BukkitPepperScheduler(this);`
-   （import `io.pepper.lib.task.*`）；
-3. 44 个引用文件：import 与类型 `Scheduler` → `io.pepper.lib.task.PepperScheduler`
+   （import `ltd.pepper.lib.task.*`）；
+3. 44 个引用文件：import 与类型 `Scheduler` → `ltd.pepper.lib.task.PepperScheduler`
    （字段/参数/局部变量；方法调用名一律不变——旧名经 lib default 生效）；
 4. 测试替身（6 文件）：改 `implements PepperScheduler`，实现规范名（旧名实现删除）；
    `TestScheduler`（Union）语义（蹦床重入）不变，仅换接口；
@@ -86,7 +86,7 @@
 | 常量 | 无 | `MAX_CENTS=1e15` / `MAX_AMOUNT=1e15` | Union 独有 |
 | 调用点 | 6 处（main：format×4、toMajor×2） | 48 处（format×37、isValidAmount×5、toVault×4、tryParse×4 + 常量） | — |
 
-### 2.2 lib API（`io.pepper.lib.money.Amounts`，超集）
+### 2.2 lib API（`ltd.pepper.lib.money.Amounts`，超集）
 
 ```java
 public final class Amounts {
@@ -121,7 +121,7 @@ public final class Amounts {
 
 ### 2.4 lib 测试 = 两插件断言并集
 
-`io.pepper.lib.money.AmountsTest`：Union 全套（format 去尾零/负数、tryParse 拒科学计数法与超界、
+`ltd.pepper.lib.money.AmountsTest`：Union 全套（format 去尾零/负数、tryParse 拒科学计数法与超界、
 isValid ±1e15、toMajor 2^53 守卫抛异常）+ Claim 全套（toCents HALF_UP 舍入 1.235→124、
 toCents(BigDecimal)、formatFixed "100.50"/"0.00"）+ 参数化 isValid(long,long) 边界。
 

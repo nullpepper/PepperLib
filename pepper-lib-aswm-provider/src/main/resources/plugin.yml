@@ -1,11 +1,11 @@
 name: PepperLib-ASWM-Provider
 version: '${version}'
-main: io.pepper.lib.aswm.provider.PepperLibAswmProviderPlugin
+main: ltd.pepper.lib.aswm.provider.PepperLibAswmProviderPlugin
 api-version: '1.18'
 prefix: PepperLib-ASWM
 depend:
   - PepperLib
-description: PepperLib 可选 provider：经 Advanced Slime Paper API 提供实例世界服务（io.pepper.lib.world.InstanceWorldService）。
+description: PepperLib 可选 provider：经 Advanced Slime Paper API 提供实例世界服务（ltd.pepper.lib.world.InstanceWorldService）。
 authors:
   - Pepper
 folia-supported: false

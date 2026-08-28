@@ -12,7 +12,7 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
   （`SourceDependencyGuardTest` 守卫）。lib 可独立发布、独立构建。
 - **运行形态（双模式，见 docs/pepperlib-dual-loading-and-consumer-migration.md）**：
   - **前置插件模式**：服务器安装 `pepper-lib-plugin` 子项目产出的 `PepperLib.jar`
-    （未 relocate 的 `io.pepper.lib.*` 单一实例）；PepperClaim / PepperUnion 以
+    （未 relocate 的 `ltd.pepper.lib.*` 单一实例）；PepperClaim / PepperUnion 以
     `compileOnly` 坐标依赖 + `paper-plugin.yml` 声明 `PepperLib` 为必需前置
     （`load: BEFORE`），启动时经 `ServicesManager` 校验 `PepperLibRuntime`。
   - **shade 模式**：第三方消费者以普通库坐标 + shadow relocate 到私有命名空间，
@@ -26,7 +26,7 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
 
 ## 实例世界能力（Experimental）
 
-`io.pepper.lib.world` 提供与具体 Slime 实现解耦的异步实例世界 SPI，供 PVP/PVE
+`ltd.pepper.lib.world` 提供与具体 Slime 实现解耦的异步实例世界 SPI，供 PVP/PVE
 竞技场插件（双消费者共设计，语义一致：比赛结束 → 清场 → 卸载实例）使用：
 
 - **能力声明**：`PepperLibRuntime.supports("world-instance")`（最低版本 1.18，
@@ -36,7 +36,7 @@ Pepper 插件家族共享的协议 / 模型 / 基础设施原语库
 - **隔离契约**：每个实例是独立活体世界（独立区块/实体/容器）；实例修改仅存在于
   实例生命周期内，卸载即丢弃（`UnloadOptions.discardWhenEmpty()`），永不写回模板。
 - **部署契约（前置模式）**：跨插件服务互通依赖服务器单一实例的
-  `io.pepper.lib.*` 类；shade 消费者因类重定位无法经 ServicesManager 互通。
+  `ltd.pepper.lib.*` 类；shade 消费者因类重定位无法经 ServicesManager 互通。
 - **可选 provider**：`pepper-lib-aswm-provider`（独立薄 jar，非 PepperLib.jar 一部分），
   基于唯一公开发布的 `com.infernalsuite.aswm:api:3.0.0`（Advanced Slime Paper）。
   注意：InfernalSuite 官方项目已从插件转为 **ASP 服务端 fork**（见
@@ -69,10 +69,10 @@ worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
 
 ## 低版本服务器支持（自适应加载）
 
-- **检测与决策**：前置插件 `onEnable` 扫描 classpath 中 `io.pepper.lib` 类的
-  `@MinMinecraftVersion` 类级注解（`io.pepper.lib.runtime.MinMinecraftVersion`），
+- **检测与决策**：前置插件 `onEnable` 扫描 classpath 中 `ltd.pepper.lib` 类的
+  `@MinMinecraftVersion` 类级注解（`ltd.pepper.lib.runtime.MinMinecraftVersion`），
   聚合出「能力 → 最低版本」注册表，再用 `Bukkit.getMinecraftVersion()`（纯版本号，
-  新旧格式 `1.18.2` / `26.1.2` 统一由 `io.pepper.lib.runtime.ServerVersions` 数值比较）
+  新旧格式 `1.18.2` / `26.1.2` 统一由 `ltd.pepper.lib.runtime.ServerVersions` 数值比较）
   决策能力集——新增特性只需给类贴注解，无需改决策代码。
 - **能力**：`PepperLibRuntime.supports("gui-host")`——低于 1.21 的服务器不声明此能力
   （`GuiHolder` / `GuiHost` / `PageHolderAdapter` 标注
@@ -92,21 +92,21 @@ worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
 
 | 包 | 类型 | 状态 |
 |---|---|---|
-| `io.pepper.lib.runtime` | `PepperLibRuntime`（含 `atLeast`）/ `ServerVersions` / `MinMinecraftVersion` / `LibVersions` | 前置插件经 ServicesManager 注册的稳定运行时服务（版本/能力诊断；`atLeast` 为「≥ 最低版本」比较语义，替代前缀匹配）；类级最低版本声明注解 |
-| `io.pepper.lib.expression` | `SafeExpression` / `PlaceholderVariableMapper` | 稳定（源自 PepperBotCustomMessage 提取；安全布尔表达式 + 占位符改写，纯 Java） |
-| `io.pepper.lib.util` | `CooldownTracker` / `Hashing` | 稳定（源自 PepperBotCustomMessage 提取；per-key 冷却槽 + SHA-256，纯 Java） |
-| `io.pepper.lib.task` | `PepperScheduler` / `BukkitPepperScheduler` / `ThreadGuard`(Instance) | 已接入（两插件） |
-| `io.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
-| `io.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` / `GuiHost` | 已接入（两插件 GUI） |
-| `io.pepper.lib.confirm` | `ConfirmEntry` / `ConfirmRegistry` / `ConfirmCleanupListener` | 已接入（两插件二次确认） |
-| `io.pepper.lib.i18n` | `LanguageBundle` / `TextValue` / `PlaceholderResolver` | 已接入（两插件 i18n） |
-| `io.pepper.lib.money` | `Amounts` | 已接入（两插件金额） |
-| `io.pepper.lib.economy` | `VaultSupport` | 已接入（两插件 Vault 解析） |
-| `io.pepper.lib.papi` | `PapiExpansionSupport` | 已接入（两插件 PAPI 注册） |
-| `io.pepper.lib.persist` | `PersistentStore` / `StoreCodec` / `PersistentStores` | **Experimental**：双消费者共设计（PVP 竞技场 + 漂流瓶插件）——全量加载、修改异步写盘（写中合并 + 原子写崩溃一致 + flush 同步兜底），纯 JDK（codec 消费者注入） |
-| `io.pepper.lib.world` | `InstanceWorldService` / `WorldInstance` / `WorldTemplateRef` / `WorldInstanceRequest` / `UnloadOptions` / `WorldInstanceState` / `WorldProviderInfo` / `WorldProviderException` / `WorldProviderError` | **Experimental**：双消费者共设计（PVP/PVE 竞技场插件，语义一致：结束→清场→卸载）；provider 经 ServicesManager 注册（仅前置模式）；可选实现见 `pepper-lib-aswm-provider`（详见下方「实例世界能力」） |
-| `io.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
-| `io.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
+| `ltd.pepper.lib.runtime` | `PepperLibRuntime`（含 `atLeast`）/ `ServerVersions` / `MinMinecraftVersion` / `LibVersions` | 前置插件经 ServicesManager 注册的稳定运行时服务（版本/能力诊断；`atLeast` 为「≥ 最低版本」比较语义，替代前缀匹配）；类级最低版本声明注解 |
+| `ltd.pepper.lib.expression` | `SafeExpression` / `PlaceholderVariableMapper` | 稳定（源自 PepperBotCustomMessage 提取；安全布尔表达式 + 占位符改写，纯 Java） |
+| `ltd.pepper.lib.util` | `CooldownTracker` / `Hashing` | 稳定（源自 PepperBotCustomMessage 提取；per-key 冷却槽 + SHA-256，纯 Java） |
+| `ltd.pepper.lib.task` | `PepperScheduler` / `BukkitPepperScheduler` / `ThreadGuard`(Instance) | 已接入（两插件） |
+| `ltd.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
+| `ltd.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` / `GuiHost` | 已接入（两插件 GUI） |
+| `ltd.pepper.lib.confirm` | `ConfirmEntry` / `ConfirmRegistry` / `ConfirmCleanupListener` | 已接入（两插件二次确认） |
+| `ltd.pepper.lib.i18n` | `LanguageBundle` / `TextValue` / `PlaceholderResolver` | 已接入（两插件 i18n） |
+| `ltd.pepper.lib.money` | `Amounts` | 已接入（两插件金额） |
+| `ltd.pepper.lib.economy` | `VaultSupport` | 已接入（两插件 Vault 解析） |
+| `ltd.pepper.lib.papi` | `PapiExpansionSupport` | 已接入（两插件 PAPI 注册） |
+| `ltd.pepper.lib.persist` | `PersistentStore` / `StoreCodec` / `PersistentStores` | **Experimental**：双消费者共设计（PVP 竞技场 + 漂流瓶插件）——全量加载、修改异步写盘（写中合并 + 原子写崩溃一致 + flush 同步兜底），纯 JDK（codec 消费者注入） |
+| `ltd.pepper.lib.world` | `InstanceWorldService` / `WorldInstance` / `WorldTemplateRef` / `WorldInstanceRequest` / `UnloadOptions` / `WorldInstanceState` / `WorldProviderInfo` / `WorldProviderException` / `WorldProviderError` | **Experimental**：双消费者共设计（PVP/PVE 竞技场插件，语义一致：结束→清场→卸载）；provider 经 ServicesManager 注册（仅前置模式）；可选实现见 `pepper-lib-aswm-provider`（详见下方「实例世界能力」） |
+| `ltd.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
+| `ltd.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
 
 ## API 稳定性策略
 
@@ -142,7 +142,7 @@ bash scripts/paper-smoke.sh shaded             # 真实 Paper shade 模式 smoke
 ./gradlew publishToMavenLocal # 本地验证
 ```
 
-- 普通库坐标 `io.pepper:pepper-lib:<version>`（编译/shade 输入，不能放入 `plugins/`）。
+- 普通库坐标 `ltd.pepper:pepper-lib:<version>`（编译/shade 输入，不能放入 `plugins/`）。
 - 前置插件产物 `PepperLib.jar`（`pepper-lib-plugin/build/libs/`）单独分发到服务器 `plugins/`。
 - 发布前必须通过：普通库测试与 Javadoc、前置插件产物检查、两插件前置模式 Paper 启动、
   shade 示例启动、japicmp 二进制兼容（见重构文档 §10）。

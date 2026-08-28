@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * shade 模式产物守卫（双模式重构文档 §9.4）：
- * 消费者 JAR 必须包含 relocate 后的 PepperLib 类；不得包含原始 io.pepper.lib.*、
+ * 消费者 JAR 必须包含 relocate 后的 PepperLib 类；不得包含原始 ltd.pepper.lib.*、
  * paper-plugin.yml 与 PepperLibPlugin 主类。
  */
 class ShadedJarContentGuardTest {
@@ -40,7 +40,7 @@ class ShadedJarContentGuardTest {
         final Set<String> entries = entries();
         assertFalse(
                 entries.stream().anyMatch(e -> e.startsWith("io/pepper/lib/")),
-                "shaded jar must not contain original io.pepper.lib.* classes");
+                "shaded jar must not contain original ltd.pepper.lib.* classes");
         assertFalse(entries.contains("paper-plugin.yml"), "shaded jar must not carry the front-end plugin descriptor");
         assertFalse(
                 entries.stream().anyMatch(e -> e.contains("PepperLibPlugin")),

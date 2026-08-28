@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.japicmp)
 }
 
-group = "io.pepper"
+group = "ltd.pepper"
 version = "0.9.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
@@ -71,7 +71,7 @@ publishing {
     publications {
         create<MavenPublication>("mavenJava") {
             from(components["java"])
-            // artifactId 默认取 project.name（pepper-lib），坐标 io.pepper:pepper-lib:<version>。
+            // artifactId 默认取 project.name（pepper-lib），坐标 ltd.pepper:pepper-lib:<version>。
         }
     }
     repositories {

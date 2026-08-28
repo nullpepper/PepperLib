@@ -1,4 +1,4 @@
-# 统一 i18n 机制设计（`io.pepper.lib.i18n`）
+# 统一 i18n 机制设计（`ltd.pepper.lib.i18n`）
 
 > 目标：汲取 PepperClaim 与 PepperUnion 两套 i18n 方案的优点，在 PepperLib 中设计一套
 > 统一机制；两个插件保留**调用点零改动**的薄壳，行为差异全部在本文档 §8 显式列出。
@@ -13,7 +13,7 @@
 | Claim | SnakeYAML 展平加载（点号键保持字面量，规避 Bukkit YamlConfiguration 路径覆盖） | 加载管线（§5） |
 | Claim | 简单 String-map 渲染 API（小插件友好） | 壳层便利 API（§9） |
 | Union | 两阶段渲染：模板预解析缓存（解析只发生一次） | 渲染管线（§4） |
-| Union | `TextValue` 类型化占位符（literal / mini 类型层面区分） | `io.pepper.lib.i18n.TextValue`（§3） |
+| Union | `TextValue` 类型化占位符（literal / mini 类型层面区分） | `ltd.pepper.lib.i18n.TextValue`（§3） |
 | Union | `sanitizeUserContent` 防注入（剥离点击事件/插入文本） | 安全语义（§4.2） |
 | Union | 回退链 default → fallback → key + 坏模板降级纯文本 | 渲染管线（§4） |
 | Union | 原子 reload（新映射完整构建后一次性换入） | 加载管线（§5） |
@@ -41,7 +41,7 @@ union.info.name: "<gold>公会名:</gold> %name%"
 ## 3. 核心 API
 
 ```java
-package io.pepper.lib.i18n;
+package ltd.pepper.lib.i18n;
 
 /** 类型化占位符值（自 Union TextValue 原样移植）。 */
 public final class TextValue {
@@ -231,7 +231,7 @@ lib `LanguageBundleTest`（红 → 绿）：
 
 | 项 | 工作量 | 风险 |
 |---|---|---|
-| lib `io.pepper.lib.i18n`（~380 行，含 PapiPlaceholderResolver ~40 行）+ 测试 | 0.5–1 天 | 低（纯新代码；PAPI 守卫模式已在 Union 生产验证） |
+| lib `ltd.pepper.lib.i18n`（~380 行，含 PapiPlaceholderResolver ~40 行）+ 测试 | 0.5–1 天 | 低（纯新代码；PAPI 守卫模式已在 Union 生产验证） |
 | Claim 壳瘦身 + 回归 | 0.5 天 | 低（9 处差异全部显式化，§8） |
 | Union 壳瘦身 + 回归 | 0.5 天 | 低（35 处 literal 调用点零改动） |
 

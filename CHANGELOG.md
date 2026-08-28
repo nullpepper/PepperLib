@@ -9,19 +9,19 @@ All notable changes to PepperLib are documented here. Format follows
 ### 新增
 
 - **通用 GUI 设施下沉**（来源：PepperUnion gui 包，跨插件单一来源）：
-  - `io.pepper.lib.gui.PageGuide<T>`：菜单分页器（内容槽/上下页按钮/页码
+  - `ltd.pepper.lib.gui.PageGuide<T>`：菜单分页器（内容槽/上下页按钮/页码
     信息槽/去事件化翻页 `handlePageSlot`/`setItemTransformer`；页码计算复用
     `Pagination.pageCount`）；
-  - `io.pepper.lib.gui.GuiKit`：箱子 GUI 物品/文本构造（pane/namedItem/
+  - `ltd.pepper.lib.gui.GuiKit`：箱子 GUI 物品/文本构造（pane/namedItem/
     legacy/contentSlots）；
-  - `io.pepper.lib.gui.PageSession`：菜单会话基类（玩家引用/库存/渲染上下文
+  - `ltd.pepper.lib.gui.PageSession`：菜单会话基类（玩家引用/库存/渲染上下文
     守卫/回主线程/异步槽位刷新 `refreshSlot`/安全发消息 `send`）。
 
 ## [0.8.0] - 2026-08-25
 
 ### 新增
 
-- **可持久化泛型键值存储** `io.pepper.lib.persist`（双消费者共设计：
+- **可持久化泛型键值存储** `ltd.pepper.lib.persist`（双消费者共设计：
   PVP 竞技场的地图/模板配置与比赛结果持久化 + 漂流瓶插件类似需求）：
   - `PersistentStore<K, V>`：构造时全量加载（文件缺失 → 空表；损坏 →
     `IOException` 构造失败即暴露）；`put`/`remove` 修改异步写盘（写中合并、
@@ -48,7 +48,7 @@ All notable changes to PepperLib are documented here. Format follows
 
 ### 新增
 
-- **世界实例能力（Experimental）** `io.pepper.lib.world`（双消费者共设计：
+- **世界实例能力（Experimental）** `ltd.pepper.lib.world`（双消费者共设计：
   PVP/PVE 竞技场插件，语义一致「结束 → 清场 → 卸载实例」）：
   - `InstanceWorldService`：与具体 Slime 实现解耦的异步 SPI（`create` / `find` /
     `instances` / `unload` / `unloadAll`），模板读取异步、Bukkit 操作回主线程；
@@ -83,7 +83,7 @@ All notable changes to PepperLib are documented here. Format follows
 
 ### 新增
 
-- **版本比较工具** `io.pepper.lib.runtime.LibVersions`（设计评审 §4.3）：
+- **版本比较工具** `ltd.pepper.lib.runtime.LibVersions`（设计评审 §4.3）：
   - `parse`：semver 风格 1~3 段版本（`"0.5.0"` / `"0.5"` / `"1"`）解析为 `[major, minor, patch]`
     数值数组，缺段补 0；非法输入（null/空白/非数值/空段/4 段以上/负数）抛
     `IllegalArgumentException`；
@@ -105,7 +105,7 @@ All notable changes to PepperLib are documented here. Format follows
 
 ### 新增
 
-- **安全表达式引擎** `io.pepper.lib.expression`（源自 PepperBotCustomMessage 提取，
+- **安全表达式引擎** `ltd.pepper.lib.expression`（源自 PepperBotCustomMessage 提取，
   纯 JDK 零依赖）：
   - `SafeExpression`：白名单布尔表达式引擎（`&&` / `||` / `!` / 比较 /
     `contains` / `startswith` / `endswith`，字符串/数字/布尔字面量）——无反射、
@@ -113,7 +113,7 @@ All notable changes to PepperLib are documented here. Format follows
   - `PlaceholderVariableMapper`：条件串中 `<xxx>` 与 `%xxx%` 改写为合法变量名
     （非法字符 → `_`，清洗后同名冲突抛 `IllegalArgumentException`），
     记录 变量名 → 原始占位符名 映射。
-- **通用纯 Java 工具** `io.pepper.lib.util`（源自 PepperBotCustomMessage 提取）：
+- **通用纯 Java 工具** `ltd.pepper.lib.util`（源自 PepperBotCustomMessage 提取）：
   - `CooldownTracker`：per-key 冷却槽——`tryAcquire` 原子抢占、`release`
     remove-if-equals（防并发误删）、`shouldSendTip` 提示节流、`remainingMillis`、
     `clear`；窗口 `windowMillis <= 0` 视为禁用（直通语义与原版一致）；
@@ -131,21 +131,21 @@ All notable changes to PepperLib are documented here. Format follows
 
 ### 新增
 
-- **一次性验证码服务** `io.pepper.lib.verification.OneTimeCodeService`（源自
+- **一次性验证码服务** `ltd.pepper.lib.verification.OneTimeCodeService`（源自
   PepperBotBindManager `VerificationManager` 提取，0.4.0）：
   - 泛型负载 `issue(payload, ttl)` / `consume(code)`（原子消费，并发同码只成功一次）/
     `peek`（非破坏性查看）/ `restore`（失败回滚放回）/ 每键冷却（`tryAcquireCooldown`
     原子获取 + `putCooldown` 无条件重置）/ `cleanupExpired` / 设置热替换
     （`updateSettings`，进行中验证码与冷却不丢失）；码长 [4,8]、秒数钳位。
   - `OneTimeCodeServiceConcurrencyTest` 随迁（同码并发单胜者、冷却单放行）。
-- **JDBC 工具** `io.pepper.lib.storage`（源自 BindManagerImpl 提取，纯 JDK 零依赖）：
+- **JDBC 工具** `ltd.pepper.lib.storage`（源自 BindManagerImpl 提取，纯 JDK 零依赖）：
   - `SqlExceptions`：唯一键冲突（SQLState 23xxx / 消息兜底）与 transient busy
     （errorCode 5 / sqlite_busy / database is locked）分类；
   - `JdbcRetry.withConnectionRetry`：有限次退避重试（只重试 busy，唯一键冲突
     立即上抛；默认 3 次 / 50ms，可自定义）。
 
 - **自适应加载**（docs/pepperlib-dual-loading-and-consumer-migration.md §4.1）：
-  - `io.pepper.lib.runtime.ServerVersions`：服务器版本解析/比较纯函数——新旧格式
+  - `ltd.pepper.lib.runtime.ServerVersions`：服务器版本解析/比较纯函数——新旧格式
   - `PepperLibRuntime.CAP_GUI_HOST`（`"gui-host"`）能力常量：前置插件 `onEnable`
     按 `Bukkit.getMinecraftVersion()` 自动决策能力集（plugin 包内 `CapabilityResolver`
     纯函数）；低于 1.21 的服务器不声明 gui-host 并输出 warning——`GuiHolder` /
@@ -158,7 +158,7 @@ All notable changes to PepperLib are documented here. Format follows
     1.19.4+ API，1.18.2 上不存在）。
   - CI 新增 `legacy-consumer-paper-smoke` job：Paper 1.18.2 + Java 17 真实服务器
     验证自适应加载（`scripts/paper-smoke.sh legacy` 模式）。
-  - **注解驱动能力决策**：新增 `io.pepper.lib.runtime.MinMinecraftVersion` 类级注解
+  - **注解驱动能力决策**：新增 `ltd.pepper.lib.runtime.MinMinecraftVersion` 类级注解
     （`value` 最低版本 + `capability` 能力名，只表达下限）；`GuiHolder` /
     `GuiHost` / `PageHolderAdapter` 标注 `@MinMinecraftVersion("1.21", "gui-host")`；
     前置插件 `CapabilityAnnotationScanner` 扫描 classpath（jar/目录两种形态，零依赖）

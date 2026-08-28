@@ -15,7 +15,7 @@ PVP 竞技场与 PVE 竞技场（两个独立插件）都需要「同一张地�
 
 | 决策 | 选择 | 理由 |
 |---|---|---|
-| 核心/实现解耦 | 核心 SPI（`io.pepper.lib.world`）+ 独立 provider 子项目 | 核心零 ASWM 引用（依赖方向守卫）；实现可替换 |
+| 核心/实现解耦 | 核心 SPI（`ltd.pepper.lib.world`）+ 独立 provider 子项目 | 核心零 ASWM 引用（依赖方向守卫）；实现可替换 |
 | Slime 实现锁定 | `com.infernalsuite.aswm:api:3.0.0`（Advanced Slime Paper API） | 调研确认：InfernalSuite 官方项目已从插件转为 **ASP 服务端 fork**（官方 README 明示）；该 API 是唯一公开发布产物（repo.infernalsuite.com，javap 验证 38 个公共类型） |
 | 部署形态 | provider 运行时探测 `AdvancedSlimePaperAPI.instance()`，不可用则自禁降级 | 服务器部署（ASP fork vs 旧插件线）是运营决策；provider 以探测兼容两种环境，绝不因 API 缺失拖垮 PepperLib 与其他插件 |
 | 注册/发现 | Bukkit ServicesManager（与 `PepperLibRuntime` 同构） | 消费者 `getRegistration(InstanceWorldService.class)`，无 provider 即 `PROVIDER_UNAVAILABLE` |
@@ -44,7 +44,7 @@ PVP 竞技场与 PVE 竞技场（两个独立插件）都需要「同一张地�
 ## 4. 公共 API（0.7.0）
 
 ```text
-io.pepper.lib.world
+ltd.pepper.lib.world
 ├── InstanceWorldService        # SPI：create/find/instances/unload/unloadAll
 ├── WorldTemplateRef            # record(id, source 绝对路径)；id 限 [a-z0-9_-]+
 ├── WorldInstanceRequest        # record(template, instanceId)

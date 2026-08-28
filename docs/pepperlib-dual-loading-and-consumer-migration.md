@@ -4,7 +4,7 @@
 
 PepperLib 同时支持两种运行模式：
 
-1. **前置插件模式**：服务器只安装一份 `PepperLib.jar`，消费者通过 Paper 插件依赖使用未 relocate 的 `io.pepper.lib.*` 类。
+1. **前置插件模式**：服务器只安装一份 `PepperLib.jar`，消费者通过 Paper 插件依赖使用未 relocate 的 `ltd.pepper.lib.*` 类。
 2. **shade 模式**：消费者将普通 `pepper-lib` 库打入自己的 JAR，并 relocate 到消费者私有命名空间；服务器不需要安装 PepperLib 前置插件。
 
 PepperClaim 和 PepperUnion 固定迁移到前置插件模式。第三方消费者可以按部署场景选择任一模式。
@@ -39,8 +39,8 @@ PepperLib/
 
 普通库继续使用 `java-library` 和 `maven-publish`：
 
-- 坐标：`io.pepper:pepper-lib:<version>`
-- 包含 `io.pepper.lib.*` 类、sources JAR 和 Javadoc JAR
+- 坐标：`ltd.pepper:pepper-lib:<version>`
+- 包含 `ltd.pepper.lib.*` 类、sources JAR 和 Javadoc JAR
 - 不包含 `paper-plugin.yml`
 - 不包含 `JavaPlugin` 主类
 - 不包含插件生命周期逻辑
@@ -79,7 +79,7 @@ tasks.shadowJar {
 ```yaml
 name: PepperLib
 version: '${version}'
-main: io.pepper.lib.plugin.PepperLibPlugin
+main: ltd.pepper.lib.plugin.PepperLibPlugin
 api-version: '26.1'
 load: STARTUP
 folia-supported: false
@@ -88,8 +88,8 @@ folia-supported: false
 最终服务器插件产物应为 `PepperLib.jar`，其中包含：
 
 - `paper-plugin.yml`
-- `io.pepper.lib.plugin.PepperLibPlugin`
-- 未 relocate 的 `io.pepper.lib.*`
+- `ltd.pepper.lib.plugin.PepperLibPlugin`
+- 未 relocate 的 `ltd.pepper.lib.*`
 
 ## 4. 前置插件运行时设计
 
@@ -137,7 +137,7 @@ public interface PepperLibRuntime {
 `IncompatibleClassChangeError`」。
 
 **检测**：前置插件 `onEnable` 用 `Bukkit.getMinecraftVersion()`（纯版本号；旧格式
-`1.18.2` 与年份式 `26.1.2` 统一由 `io.pepper.lib.runtime.ServerVersions` 解析为
+`1.18.2` 与年份式 `26.1.2` 统一由 `ltd.pepper.lib.runtime.ServerVersions` 解析为
 `[major, minor, patch]` 数值数组后字典序比较）判断是否达到阈值 `[1,21,0]`。
 
 **能力声明**：`DefaultPepperLibRuntime` 携带 `CapabilityResolver`（plugin 包内纯函数）
@@ -154,7 +154,7 @@ paper plugin`），而 plugin.yml 的 `'1.18'` 在 1.18.2 ~ 26.x 全区间被真
 PepperClaim 和 PepperUnion 的 Gradle 依赖保持为：
 
 ```kotlin
-compileOnly("io.pepper:pepper-lib:<version>")
+compileOnly("ltd.pepper:pepper-lib:<version>")
 ```
 
 它们不得将 PepperLib 放进 `shadowJar`。
@@ -191,7 +191,7 @@ PepperClaim 仍可通过自己的其他依赖使用 PepperUnion；PepperLib 是�
 
 1. 升依赖版本时**同步**主类 `REQUIRED_PEPPERLIB_API`（前缀，如 `"0.5"`）；
 2. 构建挂 `verifyPepperLibVersion` 任务（各消费者 build.gradle 内实现）：解析
-   `compileClasspath` 中 `io.pepper:pepper-lib` 实际版本，断言与常量一致，
+   `compileClasspath` 中 `ltd.pepper:pepper-lib` 实际版本，断言与常量一致，
    不一致构建失败——把「服务器运行时才炸」提前到「本地/CI 构建即红」；
 3. 运行时校验语义「前缀匹配」仅适用于 0.x 阶段；1.0 冻结后切换为「最低版本比较」
    （见设计评审 docs/pepperlib-design-review.md §4.3）。
@@ -201,21 +201,21 @@ PepperClaim 仍可通过自己的其他依赖使用 PepperUnion；PepperLib 是�
 第三方消费者使用普通库坐标：
 
 ```kotlin
-implementation("io.pepper:pepper-lib:<version>")
+implementation("ltd.pepper:pepper-lib:<version>")
 ```
 
 并在 Shadow 配置中 relocate：
 
 ```kotlin
 tasks.shadowJar {
-    relocate("io.pepper.lib", "com.example.myplugin.lib.pepper")
+    relocate("ltd.pepper.lib", "com.example.myplugin.lib.pepper")
 }
 ```
 
 shade 模式的消费者 JAR 必须满足：
 
 - 包含 relocate 后的 PepperLib 类。
-- 不包含原始 `io.pepper.lib.*` 类。
+- 不包含原始 `ltd.pepper.lib.*` 类。
 - 不包含 `paper-plugin.yml`。
 - 不包含 `PepperLibPlugin` 主类。
 - 不声明必需的 PepperLib 前置依赖。
@@ -227,8 +227,8 @@ shade 模式的消费者 JAR 必须满足：
 ### 阶段 C1：编译依赖切换
 
 1. 将 PepperLib 版本统一到目标版本，例如 `0.2.0`。
-2. 保持 `compileOnly("io.pepper:pepper-lib:0.2.0")`。
-3. 保持 `testImplementation("io.pepper:pepper-lib:0.2.0")`。
+2. 保持 `compileOnly("ltd.pepper:pepper-lib:0.2.0")`。
+3. 保持 `testImplementation("ltd.pepper:pepper-lib:0.2.0")`。
 4. 确认 `shadowJar` 没有包含 `io/pepper/lib/**`。
 
 ### 阶段 C2：Paper 依赖声明
@@ -266,8 +266,8 @@ PepperLib:
 ### 阶段 U1：编译依赖切换
 
 1. 将 PepperLib 版本统一到目标版本，例如 `0.2.0`。
-2. 保持 `compileOnly("io.pepper:pepper-lib:0.2.0")`。
-3. 保持 `testImplementation("io.pepper:pepper-lib:0.2.0")`。
+2. 保持 `compileOnly("ltd.pepper:pepper-lib:0.2.0")`。
+3. 保持 `testImplementation("ltd.pepper:pepper-lib:0.2.0")`。
 4. 确认 `shadowJar` 不包含 `io/pepper/lib/**`。
 
 ### 阶段 U2：Paper 依赖声明
@@ -301,7 +301,7 @@ PlaceholderAPI、Vault、TrChat 继续保持现有软依赖语义，不要把这
 
 - `pepper-lib` JAR 不包含 `paper-plugin.yml`。
 - `pepper-lib` JAR 不包含 `PepperLibPlugin`。
-- `pepper-lib` JAR 包含全部公开 `io.pepper.lib.*` 类。
+- `pepper-lib` JAR 包含全部公开 `ltd.pepper.lib.*` 类。
 - POM、Gradle metadata、sources JAR 和 Javadoc JAR 坐标正确。
 
 ### 9.2 前置插件测试
@@ -326,7 +326,7 @@ PlaceholderAPI、Vault、TrChat 继续保持现有软依赖语义，不要把这
 ### 9.4 Shade 模式测试
 
 - 示例消费者 shade 后包含 relocate 后的 PepperLib 类。
-- shade JAR 不包含 `paper-plugin.yml` 和原始 `io.pepper.lib.*`。
+- shade JAR 不包含 `paper-plugin.yml` 和原始 `ltd.pepper.lib.*`。
 - 未安装 PepperLib 前置时 shade 消费者可以独立启动。
 - shade 消费者与 PepperLib 前置插件同时存在时不冲突。
 - 一个服务器同时运行前置模式消费者和 shade 模式消费者时无类型冲突。
@@ -345,8 +345,8 @@ shaded-consumer-paper-smoke
 
 发布产物：
 
-- `io.pepper:pepper-lib:<version>`：普通库。
-- `io.pepper:pepper-lib-plugin:<version>` 或独立下载的 `PepperLib.jar`：前置插件。
+- `ltd.pepper:pepper-lib:<version>`：普通库。
+- `ltd.pepper:pepper-lib-plugin:<version>` 或独立下载的 `PepperLib.jar`：前置插件。
 
 版本号应统一来源于 Gradle 属性，并注入 `paper-plugin.yml`。发布前必须完成：
 

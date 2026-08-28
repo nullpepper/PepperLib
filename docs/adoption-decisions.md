@@ -66,9 +66,9 @@ GuiManagerOpenPageTest / ConfirmMenuBehaviorTest / PagedMenuSupportTest）覆盖
 
 用户决策：统一 ThreadGuard 与 GUI 事件管线。
 
-1. **ThreadGuard → lib**（`io.pepper.lib.task.ThreadGuard`）：合并两插件守卫为超集
+1. **ThreadGuard → lib**（`ltd.pepper.lib.task.ThreadGuard`）：合并两插件守卫为超集
    （Async 断言 + 带上下文重载 + 主线程标记 IO 断言）。本地实现删除，测试迁移。
-2. **GUI 事件管线 → lib**（`io.pepper.lib.gui.GuiHost` + `GuiHolder`）：
+2. **GUI 事件管线 → lib**（`ltd.pepper.lib.gui.GuiHost` + `GuiHolder`）：
    - GuiHost 为**实例类**（两插件可同服共存，各持实例；非静态单例）；
    - Union `GuiManager` 变 30 行薄壳（静态入口 inst() 委托）；
    - Claim 删除 `ClaimGuiListener`，`ClaimGui.Holder` 实现 lib GuiHolder，
@@ -81,7 +81,7 @@ GuiManagerOpenPageTest / ConfirmMenuBehaviorTest / PagedMenuSupportTest）覆盖
 
 ## 9. 统一 i18n 机制（已实施 2026-08）
 
-设计文档：`docs/i18n-unified-design.md`。机制入 lib（`io.pepper.lib.i18n`：LanguageBundle /
+设计文档：`docs/i18n-unified-design.md`。机制入 lib（`ltd.pepper.lib.i18n`：LanguageBundle /
 TextValue / LocaleResolver / PlaceholderResolver / PapiPlaceholderResolver），两插件
 LanguageManager 瘦身为壳（format/render 等调用点零改动）。
 
@@ -106,7 +106,7 @@ LanguageManager 瘦身为壳（format/render 等调用点零改动）。
 
 依据 docs/extraction-audit-2.md（审计）与 docs/extraction-a2-plan.md（方案）。
 
-1. **Scheduler → lib**（`io.pepper.lib.task`）：
+1. **Scheduler → lib**（`ltd.pepper.lib.task`）：
    - `PepperScheduler` 增 3 个遗留别名 default 方法（`runTaskAsynchronously → runAsync`、
      `runTaskTimer → runRepeating`、`supplyOnMainThread → supplyOnMain`）——委托方向翻转
      （旧插件接口是「新名 default 委托旧名」，lib 统一为「旧名 default 委托规范名」），
@@ -114,7 +114,7 @@ LanguageManager 瘦身为壳（format/render 等调用点零改动）。
    - 新 `BukkitPepperScheduler`（两份 PaperScheduler 实现 diff 仅差 package，合并为一）；
    - 两插件删除 Scheduler/PaperScheduler/SchedulerPepperContractTest 共 6 文件，
      55 个引用文件机械替换类型（方法名零改动）；测试替身改实现 lib 接口并补 isMainThread。
-2. **Amounts → lib**（`io.pepper.lib.money.Amounts`）：
+2. **Amounts → lib**（`ltd.pepper.lib.money.Amounts`）：
    - 超集：`toCents(double/BigDecimal)`（Claim HALF_UP）、`toMajor(long)`（Union 2^53 守卫，
      取代 toVault）、`format(long)` 去尾零（Union）+ `formatFixed(long)` 固定 2 位（Claim）、
      `tryParse`（Union）、`isValid(long)` ±1e15 + 参数化 `isValid(long, long)`；
@@ -127,11 +127,11 @@ LanguageManager 瘦身为壳（format/render 等调用点零改动）。
 
 依据 docs/extraction-audit-2.md C/D 项。
 
-1. **Vault 软依赖解析 → lib**（`io.pepper.lib.economy.VaultSupport`）：惰性
+1. **Vault 软依赖解析 → lib**（`ltd.pepper.lib.economy.VaultSupport`）：惰性
    `economy()`（ServicesManager 查询，重载安全）；两桥内部解析委托（Claim 构造时 /
    Union 每调用），桥本体契约（cents+Result vs double+boolean）不统一。
    新增 jitpack 仓库 + VaultAPI 1.7 compileOnly/testImplementation（与 Union 同坐标）。
-2. **PAPI 扩展注册样板 → lib**（`io.pepper.lib.papi.PapiExpansionSupport`）：
+2. **PAPI 扩展注册样板 → lib**（`ltd.pepper.lib.papi.PapiExpansionSupport`）：
    泛型 Supplier 形态 `register(factory)`——守卫（未安装/未启用 → null）在 lib 内，
    **工厂仅在 PAPI 在场时调用**（扩展类 extends PAPI 类型，无 PAPI 时构造即
    NoClassDefFoundError）；返回注册实例供 onDisable 注销；异常兜底。

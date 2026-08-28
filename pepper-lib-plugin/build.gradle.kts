@@ -4,10 +4,10 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-group = "io.pepper"
+group = "ltd.pepper"
 version = project(":").version
 
-description = "PepperLib 前置插件：服务器单一实例提供未 relocate 的 io.pepper.lib.* 类。"
+description = "PepperLib 前置插件：服务器单一实例提供未 relocate 的 ltd.pepper.lib.* 类。"
 
 dependencies {
     // 普通库整体打入前置插件，但不 relocate（前置插件模式契约）。
@@ -29,7 +29,7 @@ tasks.jar {
 tasks.shadowJar {
     archiveBaseName.set("PepperLib")
     archiveClassifier.set("")
-    // 前置插件模式核心约束：不 relocate，服务器提供未 relocate 的 io.pepper.lib.*。
+    // 前置插件模式核心约束：不 relocate，服务器提供未 relocate 的 ltd.pepper.lib.*。
     // 与 shade 模式消费者（各自 relocate 到私有命名空间）互不冲突。
 }
 

@@ -26,7 +26,7 @@
 提取方案：
 1. lib `PepperScheduler` 增加 3 个 default 别名方法（`runTaskAsynchronously → runAsync`、`runTaskTimer → runRepeating`、`supplyOnMainThread → supplyOnMain`）；
 2. 两插件删除 `Scheduler` + `PaperScheduler`（4 个文件）；
-3. 44 个引用文件机械替换类型（`io.pepper.claim/union.scheduler.Scheduler` → `io.pepper.lib.task.PepperScheduler`；注入点改 `new PepperSchedulerImpl` 或 lib 提供 `PaperScheduler` 实现——**lib 需新增一个基于 Bukkit 的 PepperScheduler 实现**（现两份实现并入 lib，如 `io.pepper.lib.task.BukkitPepperScheduler`））；
+3. 44 个引用文件机械替换类型（`io.pepper.claim/union.scheduler.Scheduler` → `ltd.pepper.lib.task.PepperScheduler`；注入点改 `new PepperSchedulerImpl` 或 lib 提供 `PaperScheduler` 实现——**lib 需新增一个基于 Bukkit 的 PepperScheduler 实现**（现两份实现并入 lib，如 `ltd.pepper.lib.task.BukkitPepperScheduler`））；
 4. 测试替身（ImmediateScheduler 等）改 implements lib 接口。
 
 行为：零变化（别名委托语义与现状一致）。工作量：lib ~1 小时；每插件机械替换 ~0.5 天。
@@ -42,22 +42,22 @@
 | 校验 | `isValid(long)`：0..9e15 | `isValidAmount(long)`：±1e15 | 上下界不同 |
 | 解析 | 无 | `tryParse(String)`（拒科学计数法/超 2 位小数/超界） | Union 独有 |
 
-提取方案（lib `io.pepper.lib.money.Amounts`，超集）：
+提取方案（lib `ltd.pepper.lib.money.Amounts`，超集）：
 - `toCents(double)` / `toCents(BigDecimal)` / `toMajor(long)`（带 2^53 守卫）/ `tryParse(String)` / `isValid(long, long maxAbs)`；
 - `format(long)`（去尾零，Union 语义）+ `formatFixed(long)`（固定 2 位，Claim 语义）；
 - 插件收敛：Claim 6 处调用 → `formatFixed`（显示零变化）；Union 48 处 → `format`/`toMajor`（零变化）；`isValid` 边界经参数化保留各域策略。
 
 ## C. Vault 软依赖解析（可选）
 
-lib `io.pepper.lib.economy.VaultSupport`：`@Nullable Economy economy()`（getPlugin 守卫 + ServicesManager 惰性解析，取 Union 惰性形态）。两桥内部 5 行替换。桥本体（接口契约）不统一。
+lib `ltd.pepper.lib.economy.VaultSupport`：`@Nullable Economy economy()`（getPlugin 守卫 + ServicesManager 惰性解析，取 Union 惰性形态）。两桥内部 5 行替换。桥本体（接口契约）不统一。
 
 ## D. PAPI 扩展注册样板（可选）
 
-lib `io.pepper.lib.papi.PapiExpansionSupport`：`boolean register(JavaPlugin, PlaceholderExpansion)`（未安装/未启用守卫 + 异常兜底，与 PapiPlaceholderResolver 同族）；`onRequest` 与元数据仍留插件。与刚入 lib 的 PAPI 机制形成完整两面（解析 + 注册）。
+lib `ltd.pepper.lib.papi.PapiExpansionSupport`：`boolean register(JavaPlugin, PlaceholderExpansion)`（未安装/未启用守卫 + 异常兜底，与 PapiPlaceholderResolver 同族）；`onRequest` 与元数据仍留插件。与刚入 lib 的 PAPI 机制形成完整两面（解析 + 注册）。
 
 ## E. 主线程事件分发（需设计评审）
 
-lib `io.pepper.lib.event.MainThreadEventBus(PepperScheduler, Dispatcher)`：`callSync`（主线程同步可取消）/ `fireAndForget`。Claim `ClaimEventBus` 基于它重构（Pre/Post 语义留插件）；Union `EventBus` 可选用（现仅为测试缝，直呼 callEvent 在服务线程触发事件有主线程隐患——引入后可顺带修正）。
+lib `ltd.pepper.lib.event.MainThreadEventBus(PepperScheduler, Dispatcher)`：`callSync`（主线程同步可取消）/ `fireAndForget`。Claim `ClaimEventBus` 基于它重构（Pre/Post 语义留插件）；Union `EventBus` 可选用（现仅为测试缝，直呼 callEvent 在服务线程触发事件有主线程隐患——引入后可顺带修正）。
 风险：Claim 事件总线耦合写入管线（ServiceSupport），迁移需回归全部事件链路测试。
 
 ## F. 不做（证据）

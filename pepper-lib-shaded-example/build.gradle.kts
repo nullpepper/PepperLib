@@ -27,7 +27,7 @@ tasks.shadowJar {
     archiveBaseName.set("ShadedExample")
     archiveClassifier.set("")
     // shade 模式核心约束：relocate 到私有命名空间，与前置插件/其他消费者互不冲突。
-    relocate("io.pepper.lib", "io.example.shaded.lib")
+    relocate("ltd.pepper.lib", "io.example.shaded.lib")
 }
 
 tasks.test {
