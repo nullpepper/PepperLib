@@ -76,9 +76,15 @@ class BukkitMemoryWorldService implements InstanceWorldService {
      * 维度容器 = 主世界文件夹的父目录（world/dimensions/minecraft）；测试可覆写。</p>
      */
     protected Path worldContainerPath() {
-        final World overworld = Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
+        final World overworld =
+                Bukkit.getWorlds().isEmpty() ? null : Bukkit.getWorlds().get(0);
         if (overworld != null) {
-            final Path parent = overworld.getWorldFolder().toPath().toAbsolutePath().normalize().getParent();
+            final Path parent = overworld
+                    .getWorldFolder()
+                    .toPath()
+                    .toAbsolutePath()
+                    .normalize()
+                    .getParent();
             if (parent != null) {
                 return parent;
             }

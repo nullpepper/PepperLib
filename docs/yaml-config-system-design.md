@@ -107,7 +107,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 | S9 | 空值 `key:` | 标准语义 null | 手写给空 Map；消费方 mapOf/回落逻辑均以 null/缺键等价处理，无感知 |
 | S10 | 键序 | LinkedHashMap 保序；Node 树保文档序 | 与手写/加载顺序一致；写回时键序 = 磁盘原序 + 新键追加/按默认模板位置 |
 | S11 | 引号/转义/多行 `\|`/锚点/块序列 | 全支持（原语料禁区解除） | 手写会拒；文档注明"原本会被拒的文件现在能过" |
-| S12 | 多文档 | 取首文档；文档规范禁止多文档（测试锁） | 防静默丢段 |
+| S12 | 多文档 | **拒绝**（Yaml.load 单文档语义，遇第二文档直接报错） | 规范禁止多文档，防静默丢段；实测锁定（snakeyaml 2.6 `load` 遇 `---` 第二文档抛 "expected a single document"） |
 | S13 | BOM | parse 前剥离 UTF-8 BOM | **修复**：手写会把 `\uFEFF` 粘进首键导致静默迁移误判 |
 | S14 | 错误形态 | `YamlParseException(line, column, problem, cause)` | MarkedYAMLException 转结构化；中文文案由消费方组装（lib 保持语言中立） |
 | S15 | 文件编码 | 调用方解码为 String 后 parse；L1 提供 readUtf8 | 引擎不管 IO |

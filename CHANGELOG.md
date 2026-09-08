@@ -4,7 +4,24 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
-## [0.9.0] - 2026-09-02
+## [0.10.0] - 2026-09-07
+
+### 新增
+
+- **YAML 统一解析门面** `ltd.pepper.lib.yaml`（设计文档 `docs/yaml-config-system-design.md` §6）：
+  - `YamlMap.parse`：YAML 文本 → 保序 `Map<String,Object>`（纯 JDK、零 Bukkit 依赖）；
+    SafeConstructor 钉死、禁 timestamp、重复键报错（显式收紧，snakeyaml 2.6 默认放行）、
+    空文档/纯注释归一空 Map、多文档拒绝、BOM 剥离；
+  - `YamlParseException`：结构化错误（1-based 行列 + snakeyaml 原问题描述，中文文案由消费方组装）；
+  - 语义矩阵测试逐行锁定（S1–S16 定案表）。
+- **依赖显式化**：`org.yaml:snakeyaml:2.6` 进 `libs.versions.toml`（此前 LanguageBundle 靠 paper-api
+  传递隐式获得）——运行期由服务端捆绑提供，lib 不打包不传递。
+
+### 变更
+
+- **i18n LanguageBundle 收敛**：两处裸 `new Yaml().load()` 换 `YamlMap.parse`（行为护栏：现有
+  i18n 测试全绿；宽容降级语义保留在调用点；副产物修复：日期样字符串不再隐式变 `Date`、
+  顶层非映射文件从静默忽略升级为 warn）。
 
 ### 新增
 

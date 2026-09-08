@@ -11,6 +11,9 @@ mockbukkit = "4.115.0"
 mockito = "5.23.0"
 sqlite = "3.46.1.0"
 aswm = "3.0.0"
+# YAML 引擎（ltd.pepper.lib.yaml/config）：pin = 服务端捆绑版本（Paper 26.2 实测 2.6），
+# 运行期由服务端提供（Bukkit YamlConfiguration 自身依赖，必在类路径），编译/测试显式声明。
+snakeyaml = "2.6"
 # 本地构建的 ASWM fork（vjh0107，支持 MC 26.1.2）API jar；文件依赖避免 publish 依赖。
 palantirJavaFormat = "2.97.0"
 spotless = "8.9.0"
@@ -29,6 +32,7 @@ mockbukkit = { module = "org.mockbukkit.mockbukkit:mockbukkit-v26.1.2", version.
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 aswm-api = { module = "com.infernalsuite.aswm:api", version.ref = "aswm" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 # fork 重命名为 com.infernalsuite.asp.api；文件依赖本地构建产物（MC 26.1.2）。
 
 [plugins]

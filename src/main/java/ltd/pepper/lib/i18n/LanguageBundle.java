@@ -2,6 +2,7 @@ package ltd.pepper.lib.i18n;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -14,12 +15,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Logger;
+import ltd.pepper.lib.yaml.YamlMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextReplacementConfig;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
-import org.yaml.snakeyaml.Yaml;
 
 /**
  * 统一 i18n 语言包（内部设计文档 i18n-unified-design）。
@@ -127,20 +128,17 @@ public final class LanguageBundle {
         final Map<String, String> merged = new LinkedHashMap<>();
         try (InputStream in = this.resourceLoader.apply(path)) {
             if (in != null) {
-                final Object loaded = new Yaml().load(in);
-                if (loaded instanceof Map<?, ?> map) {
-                    this.collect(map, "", merged);
-                }
+                final String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                final Map<String, Object> map = YamlMap.parse(text);
+                this.collect(map, "", merged);
             }
         } catch (final Exception e) {
             this.warn("failed to load bundled language " + path + ": " + e);
         }
         if (file.exists()) {
-            try (InputStream in = Files.newInputStream(file.toPath())) {
-                final Object loaded = new Yaml().load(in);
-                if (loaded instanceof Map<?, ?> map) {
-                    this.collect(map, "", merged);
-                }
+            try {
+                final Map<String, Object> map = YamlMap.parse(Files.readString(file.toPath(), StandardCharsets.UTF_8));
+                this.collect(map, "", merged);
             } catch (final Exception e) {
                 // 用户改坏的语言文件（如 YAML 语法错误）不得中断整个重载。
                 this.warn("failed to parse language file " + file + ": " + e);

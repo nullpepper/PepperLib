@@ -107,6 +107,12 @@ worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
 | `ltd.pepper.lib.world` | `InstanceWorldService` / `WorldInstance` / `WorldTemplateRef` / `WorldInstanceRequest` / `UnloadOptions` / `WorldInstanceState` / `WorldProviderInfo` / `WorldProviderException` / `WorldProviderError` | **Experimental**：双消费者共设计（PVP/PVE 竞技场插件，语义一致：结束→清场→卸载）；provider 经 ServicesManager 注册（仅前置模式）；可选实现见 `pepper-lib-aswm-provider`（详见下方「实例世界能力」） |
 | `ltd.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
 | `ltd.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
+| `ltd.pepper.lib.yaml` | `YamlMap` / `YamlParseException` | **Experimental**：家族统一 YAML 解析门面（设计文档 `docs/yaml-config-system-design.md`）——SafeConstructor、禁 timestamp、重复键报错、空文档归一空 Map、BOM 剥离；纯 JDK；运行期解析经服务端捆绑 snakeyaml（Paper 26.2 = 2.6，编译 pin 2.6） |
+
+运行期依赖：`ltd.pepper.lib.yaml`（以及后续 `config` 工具链）的解析经 `org.yaml.snakeyaml`，
+由**服务端捆绑**提供——Paper 26.2 内置 2.6，且 Bukkit YamlConfiguration 自身依赖它故必在
+类路径，Paper 安全补丁随服务端生效。lib 不打包、不传递该依赖；编译期 pin 2.6（单一来源
+`gradle/libs.versions.toml`，升级只改一处）。
 
 ## API 稳定性策略
 

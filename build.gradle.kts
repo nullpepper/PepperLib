@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ltd.pepper"
-version = "0.9.0"
+version = "0.10.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {
@@ -38,6 +38,10 @@ dependencies {
     compileOnly(libs.vault.api) {
         exclude(group = "org.bukkit", module = "bukkit")
     }
+    // SnakeYAML 显式声明（ltd.pepper.lib.yaml/config 引擎）：编译期 = 版本目录 pin 2.6；
+    // 运行期由服务端提供（Bukkit YamlConfiguration 自身依赖，Paper 26.2 捆绑 2.6 实测）；
+    // 不打包、不传递。此前 LanguageBundle 靠 paper-api 传递隐式获得，现显式化并锁定版本。
+    compileOnly(libs.snakeyaml)
     // 阶段 6.5 收敛：方言实现（SqliteDialect/MariaDbDialect）与 ConnectionPoolFactory
     // 已删除（零消费者），HikariCP 与驱动类字面量不再需要——消费方插件各自提供。
 
@@ -55,6 +59,8 @@ dependencies {
     }
     // 迁移框架测试使用内存 SQLite（DriverManager 按 jdbc url 加载驱动）。
     testImplementation(libs.sqlite.jdbc)
+    // YAML 引擎测试：显式同版本（不依赖 paper-api 传递）。
+    testImplementation(libs.snakeyaml)
 }
 
 tasks.test {
