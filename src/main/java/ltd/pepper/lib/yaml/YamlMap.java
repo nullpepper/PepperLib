@@ -21,7 +21,7 @@ import org.yaml.snakeyaml.resolver.Resolver;
  * 禁 timestamp、重复键异常、空文档归一空 Map、多文档取首文档、BOM 剥离等；安全与上限保持
  * snakeyaml 默认。</p>
  *
- * <p>与写回用 Node 级编辑器 {@code YamlDoc}（P1 引入）共享同一引擎内核，
+ * <p>与写回用文本合并器 {@code YamlMerge}（P1 引入）共享同一引擎内核，
  * 仅 processComments 开关不同。</p>
  */
 public final class YamlMap {

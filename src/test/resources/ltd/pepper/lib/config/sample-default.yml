@@ -1,0 +1,7 @@
+# sample-default.yml（ConfigFile.copyDefaultIfMissing 测试资源）
+gate:
+  # 默认键注释
+  requireAxe: true
+  axes: ['#minecraft:axes']
+effects:
+  enabled: true

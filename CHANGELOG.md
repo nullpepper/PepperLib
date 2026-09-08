@@ -4,6 +4,22 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.11.0] - 2026-09-07
+
+### 新增
+
+- **写回合并器** `ltd.pepper.lib.yaml.YamlMerge`（设计文档 §8）：文本模板合并——磁盘 + 默认模板
+  → 合并文本（只增缺失键块含前置注释，磁盘其它字节**原样不动**，putIfAbsent 语义）；
+  AST 行号锚点 + 源文本切片，金样测试逐字断言。**路线裁定**：Node 往返（compose→改→serialize）经
+  真实语料 spike 否决（config.yml +46/−44、profiles +15/−12、+13/−9 行重排），文本模板合规定案。
+- **配置文件工具链** `ltd.pepper.lib.config`（设计文档 §7/§9）：
+  - `ConfigFile`：首跑落盘（copy-once，注释安全）/ `readUtf8`（剥离 BOM）/ `writeAtomic`（temp+rename，崩溃一致）；
+  - `ConfigIssue` / `IssueLevel` / `IssueCollector`：校验问题收集（ERROR/WARN + 点号路径）；
+  - `Values`：类型化读取（bool/int/long/double/string/list/enum，与 PepperTreeCut 助手同形，静默回落）；
+  - `UnknownKeys`：单层未知键检测（treecut checkKeys 泛化）；
+  - `ConfigVersions`：configVersion 读取 + 链式迁移（防死循环护栏）；
+  - `UpgradePatch`：升级补键薄层（plan 纯内存 / apply 出合并文本）。
+
 ## [0.10.0] - 2026-09-07
 
 ### 新增

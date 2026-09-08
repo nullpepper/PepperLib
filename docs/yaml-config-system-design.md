@@ -17,7 +17,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 
 驱动事件：PepperTreeCut 欲退役自研解析器（上轮评估结论：SnakeYAML 封装收益明确、坑集中在 5 个语义点、可测可锁）；用户裁决：**下沉 PepperLib，后续所有基于 PepperLib 且需要配置文件的插件统一使用新 YAML 配置系统**；并裁决：**写回能力必须支持，且不损失注释**（OQ-2）。
 
-额外事实（支撑下沉）：PepperLib 0.9.0 的 LanguageBundle 已构成运行期依赖服务端捆绑 snakeyaml 的先例——下沉**不引入新依赖面**，而是把隐式依赖显式化、策略单一来源化。注释保留写回已在服务端捆绑 snakeyaml-2.6.jar 上实证可行（compose→改节点→serialize + `processComments`，见 §8）。
+额外事实（支撑下沉）：PepperLib 0.9.0 的 LanguageBundle 已构成运行期依赖服务端捆绑 snakeyaml 的先例——下沉**不引入新依赖面**，而是把隐式依赖显式化、策略单一来源化。写回路线经 §8.4 spike 实证裁定：**Node 往返（compose→改→serialize）布局噪音不可接受，定案为文本模板合并**（磁盘字节原样 + 只插入缺失键块）。
 
 ## 2. 目标 / 非目标 / 验收
 
@@ -29,7 +29,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 4. **G4 PepperTreeCut 迁移**：`Yaml.java` 退役；`ConfigLoader`/`ConfigValidator` 领域语义（合并顺序、extends、tag 展开、soil 家族）不动；语料护栏测试与 387 基线保持绿。
 5. **G5 家族逐步迁移**：§12 P3 清单内插件逐家切换，每家行为等价（默认值表对比测试 + 冒烟）。
 6. **G6 测试矩阵一次建立全家共享**：语义矩阵测试、错误路径测试在 lib 内，全家族继承。
-7. **G7 注释保留写回**：`YamlDoc`（Node 级编辑器）增补键/改值/删键后序列化，磁盘注释逐字保留；写回仅由显式场景触发（升级补键、管理命令），运行期不自动落盘；写回前原子写 + 可选备份。
+7. **G7 注释保留写回**：`YamlMerge`（文本模板合并）只补缺失键块（含其注释），磁盘其它字节**逐字不动**；写回仅由显式场景触发（升级补键、管理命令），运行期不自动落盘；写回前原子写 + 可选备份。
 
 ### 非目标（明确不做）
 
@@ -38,14 +38,14 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 - 不做 Bukkit YamlConfiguration 的 drop-in 兼容层（它是被替换对象，不是被兼容对象）。
 - **运行时自动写回**（每次加载补默认落盘）不做——写回只在显式场景触发，且注释保留（§8）；写回不覆盖管理员已显式写下的键值（只补缺失）。
 - 不做运行时状态写入配置文件的通道（数据文件分流）。
-- 文本模板合并（ConfigUpdater 路线）不做首版实现，作为 Node 往返布局噪音不可接受时的 fallback 记档（§8.4）。
+- Node 级重排写回（serialize 全量重发）不做——§8.4 spike 已裁定布局噪音不可接受。
 
 ### 验收
 
 - 全家族 grep：迁移后的插件源码零 `org.bukkit.configuration` import、零自研 YAML 解析器。
 - lib `./gradlew check` 绿（junit + spotless + javadoc + 产物守卫 + japicmp）。
 - lib 矩阵测试全绿（§6 语义表逐行覆盖）；LanguageBundle 现有测试不动全绿。
-- **写回金样测试**：含注释/引号/flow list/空值的真实配置样本经 YamlDoc 增补键往返，磁盘文本差异 = 仅新增块（golden 文件断言）。
+- **写回金样测试**：含注释/引号/flow list/空值的真实配置样本经 YamlMerge 合并，磁盘文本差异 = 仅新增块（golden 断言，逐字比对）。
 - PepperTreeCut：387 基线绿 + `ConfigResourceTest` 逐字语料护栏绿 + 测试服冒烟（含 profiles 多文件、土壤家族、FB 动画不受影响）。
 - thin / shaded 双模式 Paper smoke 绿（沿用 `scripts/paper-smoke.sh`）。
 - 每家迁移插件：默认值等价测试 + 实服冒烟记录。
@@ -82,7 +82,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 │                     readUtf8（BOM 剥离）、writeAtomic（temp+rename，对齐 persist 先例）
 ├ L0 ltd.pepper.lib.yaml 引擎：YamlMap.parse → Map<String,Object>（只读路径）
 │                     YamlParseException(line,column,problem,cause)
-│                     YamlDoc（Node 级文档对象：compose 含注释 → put/putIfAbsent/remove → serialize 注释保留）
+│                     YamlMerge（文本模板合并：compose 拿 AST 行号锚点 → 缺失键块原样插入，磁盘其它字节不动）
 └ 底座：org.yaml.snakeyaml 2.6（服务端捆绑，SafeConstructor + 定案策略封装于 L0）
 ```
 
@@ -111,7 +111,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 | S13 | BOM | parse 前剥离 UTF-8 BOM | **修复**：手写会把 `\uFEFF` 粘进首键导致静默迁移误判 |
 | S14 | 错误形态 | `YamlParseException(line, column, problem, cause)` | MarkedYAMLException 转结构化；中文文案由消费方组装（lib 保持语言中立） |
 | S15 | 文件编码 | 调用方解码为 String 后 parse；L1 提供 readUtf8 | 引擎不管 IO |
-| S16 | 注释开关 | 只读路径 parse 默认 processComments=false（快）；`YamlDoc` 路径默认 true（保留注释） | 两条路径共用同一解析器内核，仅开关差异，行为一致性有测试锁 |
+| S16 | 注释开关 | 只读路径 parse 默认 processComments=false（快）；`YamlMerge` 内部 compose 用 true（取注释行号） | 两条路径共用同一解析器内核，仅开关差异，行为一致性有测试锁 |
 
 L0 API 草案（最小面）：
 
@@ -153,41 +153,41 @@ public final class ConfigFile {
 - **家族默认写策略 = 运行期永不自动写回**（§10 规范）；物理写盘只经 `writeAtomic` 且仅由显式场景（§8.3）触发。
 - 运行时状态写入配置文件被规范禁止（数据文件分流）。
 
-## 8. 写回：YamlDoc（Node 级注释保留编辑器）——OQ-2 裁决新增
+## 8. 写回：YamlMerge（文本模板合并，磁盘字节原样）——OQ-2 裁决新增
 
-### 8.1 路线与实证
+### 8.1 路线裁定：spike 实证否决 Node 往返
 
-裁决：支持写回，且不损失注释。路线 = **Node 级往返**（snakeyaml 2.x `compose` → 改节点 → `serialize`，Load/DumpOptions `processComments=true`），已在服务端捆绑 snakeyaml-2.6.jar 实测：
+裁决：支持写回，且不损失注释。曾有两候选路线，**P1 先跑 spike 再定**（OQ-2c）：
 
-- 原样往返：顶部注释、块注释、行尾注释**全保留**；
-- 追加带注释新键：注释随新键写出，但暴露 Node 层工程细节——CommentLine 文本自带 `#` 会被 emitter 再叠一个前缀、`Tag.STR` 会把裸数字强制引号（需按 `Tag.INT` 等构造）——这些由 lib 编辑器归一 + 测试锁定；
-- 已知边界：emitter 会规范化布局（实测块序列缩进被压平），**非字节级保真**——磁盘差异 = 新增块 + 可能的重排噪音，见 8.4。
+1. **Node 级往返**（compose → 改节点 → serialize，`processComments=true`）——技术上可行（服务端捆绑 2.6 实测注释全保留），但 **spike 实测布局噪音巨大，裁定否决**：
+   - 真实语料（treecut config.yml 100 行 / profiles 各 20 行）追加一个带注释新键后：config.yml 行集差 **+46/−44**，10-vanilla **+15/−12**，20-custom **+13/−9**——60%~75% 行被重排；
+   - 根因：行尾注释对齐空格被单空格化、裸 flow item 被强制引号、多行 flow list 重新折行、冒号后对齐全丢；
+   - 结论：对管理员手改、以 git diff 为工作流的配置文件不可接受，**离"仅新增块"目标差一个数量级**。
+2. **文本模板合并（定案）**：磁盘文本**逐字节不动**，只把默认模板中缺失键的整块（含其前置注释）**原样插入**磁盘；语义判断用 snakeyaml compose 的 AST（键存在性、行号锚点），块来源与插入位都用**源文本行切片**，不做全量重发——diff = 仅新增块。
 
 ### 8.2 API 草案
 
 ```java
 package ltd.pepper.lib.yaml;
 
-/** Node 级文档：parse 时 processComments=true；编辑原语在 Node 树上操作，serialize 保留注释。 */
-public final class YamlDoc {
-    public static YamlDoc parse(String text);            // 语法/重复键错误同 YamlMap（S8/S12）
-    /** 只读视图：转 Map（与 YamlMap.parse 同语义，null 文档 → 空 Map）。 */
-    public Map<String, Object> asMap();
-    /** 逐段路径访问/编辑（路径 = List<String> 段，不用点号字符串，杜绝 Bukkit 点号歧义）。 */
-    public Object get(List<String> path);
-    public boolean contains(List<String> path);
-    /** 写回核心原语：键缺失才写入；value + 可选注释行（注释来自默认模板，S11 风格按 Node 自带样式保留）。 */
-    public void putIfAbsent(List<String> path, Object value, List<String> commentLines);
-    /** 显式改值（升级重定默认值时用；不自动触发）。 */
-    public void put(List<String> path, Object value, List<String> commentLines);
-    /** 显式删键（迁移清废弃键时用；默认模板带走的旧键由消费方裁决）。 */
-    public void remove(List<String> path);
-    /** 序列化（processComments=true）；键序 = 磁盘原序 + 新增键按默认模板相对位置插入。 */
-    public String serialize();
-    /** 与默认模板比较：返回磁盘缺、模板有的路径清单（含各自注释），供 UpgradePatch 用。 */
-    public List<PathEntry> missingAgainst(Map<String, Object> defaults, List<String> pathPrefix);
+/** 文本模板合并：磁盘 + 默认模板 → 合并文本（只增缺失键，磁盘其它字节原样）。 */
+public final class YamlMerge {
+    public record Result(String merged, boolean changed, List<String> insertedPaths) {}
+
+    /** 磁盘文本与默认模板合并。磁盘缺、模板有的键块（含前置注释，按模板原缩进）插入；
+     *  磁盘已存在的路径（无论值类型）一律不动——putIfAbsent 语义。
+     *  磁盘/模板语法错抛 YamlParseException（同 YamlMap）。 */
+    public static Result merge(String diskText, String templateText);
 }
 ```
+
+实现要点：
+
+- **缺失路径**：`compose` 两个文件（processComments=true 取 AST 行号）→ 递归比对 Map 键集合，收集缺失路径 + 对应模板节点；
+- **块来源**：模板节点原文行切片 `[前置注释首行 .. 值末行]`（AST 的 start/end mark + 节点 blockComments 定位，天然含注释与多行 flow list）；
+- **插入锚点**：顶层缺失键 → 磁盘末尾（保留既有末尾换行约定）；嵌套缺失键 → 磁盘该 section 内最后一个子键之后，模板块按 section 层级重缩进（重缩进 = 相对模板基准缩进平移）；
+- **不改动**：磁盘上任何既有字节（含行尾对齐空格、引号风格、空行）——由金样测试逐字断言。
+- 典型调用方 = `UpgradePatch`（§9）：`plan` 阶段纯内存算缺失清单（diffLog 通告），`apply` 阶段 `YamlMerge.merge` → `ConfigFile.writeAtomic`（先备份）。
 
 ### 8.3 触发策略（家族规范）
 
@@ -196,13 +196,12 @@ public final class YamlDoc {
 1. **升级补键（推荐主场景）**：`configVersion` 提升时，用新版默认资源对磁盘文件执行"只补缺失键 + 注释块"，随后 `writeAtomic`（可选先写 `config.yml.bak-v<旧版本>`）；管理员已显式写下的任何键值（含旧值）**一律不覆盖**（`putIfAbsent` 语义）；
 2. **管理命令**：各插件 `/xxx config defaults` 之类显式命令触发同一补键流程（Claim diffLog 模式泛化）。
 
-Claim 迁移说明（行为变更须通告）：现 `BukkitYamlSource` 每次加载缺键即补并 `disk.save()`（对象往返，注释每次全毁）→ 迁移后改为**升级/命令触发 + 注释保留写回**；每次加载只补内存默认 + diffLog 通告。若确需保持"每次加载落盘收敛"，技术上可用 `YamlDoc.putIfAbsent` 每载重写，但布局噪音与磁盘 churn 不推荐（§8.4），由用户裁决（OQ-2b）。
+Claim 迁移说明（行为变更须通告）：现 `BukkitYamlSource` 每次加载缺键即补并 `disk.save()`（对象往返，注释每次全毁）→ 迁移后改为**升级/命令触发 + 注释保留写回**；每次加载只补内存默认 + diffLog 通告。
 
-### 8.4 布局噪音与 fallback
+### 8.4 边界与验收 gate
 
-- Node 往返非字节级保真：emitter 规范化缩进/空行布局。缓解：写回仅升级/命令触发（低频）；写回前备份；golden 金样测试断言"差异 ≈ 仅新增块"。
-- **布局噪音验收 gate（spike 产出）**：以家族真实语料（treecut config.yml/profiles、Claim 多文件）跑 YamlDoc 增补键往返，统计全文件 diff 行数；若噪音超 gate（待定：新增块外 diff 行 ≈ 0 的目标，放宽阈值 ≤ 结构无关行数的上限），切换 fallback。
-- Fallback 记档：**文本模板合并**（磁盘原文逐字节保留、只插入缺失键块）——"只增不改"场景保真最高；代价是字符串手术与只增限制；首版不做，spike 结论驱动（OQ-2c）。
+- 文本合并**只增不改**：删/改既有键不在写回范围（迁移删键只走内存 `ConfigVersions.migrate`，磁盘留旧键 + 未知键 WARN，管理员自行清理）；若未来出现"任意值改写 + 注释保留"硬需求，重估 okaeri（§4 已记档）。
+- **验收 gate（spike 已过）**：真实语料合并后 diff = 仅新增块（金样逐字断言）；spike 数据已存档（§8.1）；Node 往返数据一并存档为"为何不用"的证据。
 
 ## 9. L2 工具链
 
@@ -238,23 +237,22 @@ public final class UnknownKeys {
 }
 
 public final class ConfigVersions {
-    public static int versionOf(Map<String, Object> root);          // 缺省 = 1；非整数 → 1 + 上报？
-    /** 链式迁移：从 versionOf 起逐级应用到 currentVersion；返回是否发生迁移。 */
+    public static int versionOf(Map<String, Object> root);          // 缺省 = 1；非整数 → 1
+    /** 链式迁移：从 versionOf 起逐级应用到 currentVersion（步骤缺省停原地、防死循环）；返回是否迁移。 */
     public static boolean migrate(Map<String, Object> root, int currentVersion,
-            Map<Integer, UnaryOperator<Map<String, Object>>> stepByFrom, IssueCollector issues);
+            Map<Integer, UnaryOperator<Map<String, Object>>> stepByFrom);
 }
 
-/** 升级补键：默认模板 vs 磁盘文档 → 只补缺失（含注释块）。内部 = YamlDoc.missingAgainst + putIfAbsent。 */
+/** 升级补键：默认模板 vs 磁盘 → 只补缺失（含注释块）。内部 = YamlMerge.merge。 */
 public final class UpgradePatch {
-    public static PatchPlan plan(YamlDoc disk, Map<String, Object> defaults,
-            List<String> pathPrefix, List<String> resourceCommentHints);
-    public static String applyAndSerialize(YamlDoc disk, PatchPlan plan);   // 原子写由消费方走 ConfigFile.writeAtomic
+    public static PatchPlan plan(String diskText, String templateText);   // 纯内存算缺失清单（diffLog 通告）
+    public static YamlMerge.Result apply(String diskText, String templateText); // = YamlMerge.merge；原子写由消费方走 ConfigFile.writeAtomic
 }
 ```
 
 关键设计决策（与 Bukkit 语义的坑隔离）：
 
-- **取值 = 单层键访问**（`map.get(key)`），点号只出现在 issue 文案里；**YamlDoc 编辑路径 = 段列表**（`List<String>`）——两处都绕开 Bukkit 的"路径 vs 字面键"歧义；treecut 现有调用形态（`intOf(gravity, "maxFallDistancePerBreak", ...)`）逐行机械迁移。
+- **取值 = 单层键访问**（`map.get(key)`），点号只出现在 issue 文案里；YamlMerge 路径 = 缺失路径段列表——两处都绕开 Bukkit 的"路径 vs 字面键"歧义；treecut 现有调用形态（`intOf(gravity, "maxFallDistancePerBreak", ...)`）逐行机械迁移。
 - L2 不提供：默认值树/补默认合并（内存默认归消费方）、BlockKeySet/tag 展开、MaterialLookup——领域语义留消费方（treecut `setOf` 驻留）。
 - `migrate` 语义对齐 treecut ConfigMigrator 模式（v1→v2 删键/改名/复制），步骤函数按 from 版本注册，在**内存副本**上执行；物理落盘只经 §8.3 触发。
 - `UpgradePatch.plan` 与写回解耦：plan 可在加载期纯内存计算（diffLog 通告），apply 才碰盘。
@@ -265,7 +263,7 @@ public final class UpgradePatch {
 
 1. `ConfigFile.copyDefaultIfMissing(dataFolder, "config.yml", loader)` —— 新装服务器得到带注释的默认文件；
 2. `readUtf8` → `YamlMap.parse`（L0）→ `ConfigVersions.migrate`（root 副本上执行，原文件不动）；
-3. **升级补键（可选开启）**：`versionOf < schemaVersion` 时，用默认资源构造 `UpgradePatch.plan` → `YamlDoc` 重写 → 备份（.bak-v<旧>）→ `ConfigFile.writeAtomic`；失败不阻塞启动（告警 + 内存默认兜底）；
+3. **升级补键（可选开启）**：`versionOf < schemaVersion` 时，用默认资源算 `UpgradePatch.plan` → `YamlMerge.merge` → 备份（.bak-v<旧>）→ `ConfigFile.writeAtomic`；失败不阻塞启动（告警 + 内存默认兜底）；
 4. 消费方领域解析函数 `parse(Map, ...) → (T, issues)`：用 `Values`/`UnknownKeys`，把值装进不可变 record/builder（treecut RuntimeConfig / Union 域 record / Claim Settings 各实现），语义归一（枚举回落、tag 展开、土壤家族）放各自领域层；
 5. issues 按 ERROR/WARN 处理（treecut 门禁语义保留：全 profile 禁用才 fatal——领域规则，不进 lib）。
 
@@ -287,8 +285,8 @@ public final class UpgradePatch {
 
 ### P1（lib 0.11.0）—— 工具链 + 写回
 
-1. **写回 spike 先行**：家族真实语料 YamlDoc 往返 → 布局噪音 diff 统计 → §8.4 gate 判定（Node 往返定案 or 切文本合并 fallback）；
-2. `ltd.pepper.lib.yaml.YamlDoc`：Node 编辑器 + 注释保留金样测试（§2 验收）；
+1. **写回 spike 先行（已完成）**：家族真实语料布局噪音 diff 统计 → §8.4 gate 判定——**Node 往返否决，文本模板合并定案**（§8.1 存档数据）；
+2. `ltd.pepper.lib.yaml.YamlMerge`：文本模板合并 + 金样测试（§2 验收）；
 3. `ltd.pepper.lib.config`：ConfigFile / IssueCollector / Values / UnknownKeys / ConfigVersions / UpgradePatch + 各自测试；
 4. 无消费方行为变化（纯新增）。
 
@@ -306,7 +304,7 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 
 ## 12. 测试与发布
 
-- lib 内测试（全部纯 JDK，无 mockbukkit 需求）：S1–S16 矩阵、空/纯注释/顶层非 map/重复键/BOM/多文档/错误行列、L1（copy 不覆盖/原子写）、L2 各 reader 类型矩阵与回落、迁移链、UpgradePatch（缺键补入/已有键不覆盖/注释随块）、**YamlDoc 金样**（真实语料往返 diff = 仅新增块）、LanguageBundle 收敛护栏。
+- lib 内测试（全部纯 JDK，无 mockbukkit 需求）：S1–S16 矩阵、空/纯注释/顶层非 map/重复键/BOM/多文档/错误行列、L1（copy 不覆盖/原子写）、L2 各 reader 类型矩阵与回落、迁移链、UpgradePatch（缺键补入/已有键不覆盖/注释随块）、**YamlMerge 金样**（真实语料合并 diff = 仅新增块，逐字断言）、LanguageBundle 收敛护栏。
 - treecut 侧：ConfigResourceTest 原文语料 + 既有领域测试（387）不改语义只改调用。
 - 发布门：lib `check` 绿 → thin/shaded 双 smoke → publish → treecut 等 bump `pepperLibVersion`（gradle.properties 单源 + verifyPepperLibVersion 任务）→ 测试服替换 PepperLib.jar + 插件 jar 冒烟。
 - japicmp 纪律：P0/P1 API 面冻结后，破坏性变更需迁移指南（README 稳定性策略 0.2.x）。
@@ -319,8 +317,7 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 | 发布节奏耦合（每期 lib minor + 各消费方 bump + 测试服换 jar） | 分期即评审点；P2/P3 每家独立分支，可随时停 |
 | LanguageBundle 行为回归 | 现有测试不动即护栏；宽容降级留在调用点 |
 | 服务端 snakeyaml 版本漂移（现捆绑 2.6） | 编译 pin 2.6 = 服务端版本；升级只改 toml 一处；门面 + 矩阵测试吸收行为差异 |
-| **Node 写回布局噪音**（emitter 规范化缩进/空行；实测序列缩进压平） | 写回低频（升级/命令）；写前备份；金样测试 gate（§8.4）；不可接受则切文本合并 fallback（记档） |
-| **Node 写回工程细节**（CommentLine `#` 前缀叠加、Tag 强引号、锚点/别名重建） | lib 编辑器归一 + 专项测试锁定（§8.1 实证发现的坑逐条入测） |
+| **文本合并锚点/重缩进边界**（嵌套键插入位、多行 flow list 块切片、注释行归属） | 金样逐字断言；锚点取自 AST 行号（compose marks）而非启发式文本搜索；spike 语料回归 |
 | **写回覆盖管理员键值**（最危险的语义错误） | 写回 = `putIfAbsent` 唯一语义；"已有键永不改写"入金样与契约测试；升级只动 configVersion 门内 |
 | treecut 错误文案/ValidationReport 类型变动引入回归 | OQ-4 裁决：推荐统一到 lib ConfigIssue（树cut 文案不动，仅类型换源） |
 | 手写解析器"宽容"变引擎"严格"（重复键等） | 收紧点全部在矩阵测试锁定 + 迁移自查表通告（§6 S8/S9/S11/S12） |
@@ -329,7 +326,7 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 
 已裁决：**OQ-2 = 支持写回**（Node 级注释保留，升级/命令触发，不覆盖已有键，§8 并入本版）；**OQ-6 = 写回入范围**（P1 实现；文本合并路线降级为 fallback）。
 
-- **OQ-1 包名**：`ltd.pepper.lib.yaml`（引擎 + YamlDoc）+ `ltd.pepper.lib.config`（工具链）是否可接受？（备选：合并单包 `ltd.pepper.lib.config` 全部收纳）
+- **OQ-1 包名**：`ltd.pepper.lib.yaml`（引擎 + YamlMerge）+ `ltd.pepper.lib.config`（工具链）是否可接受？（备选：合并单包 `ltd.pepper.lib.config` 全部收纳）
 - **OQ-2b Claim 语义**：迁移后确认放弃"每次加载补默认落盘"、改为升级/命令触发写回？（推荐：是——否则每次加载全文件重排；若坚持每载落盘则接受布局噪音与 churn）
 - **OQ-2c 布局噪音 gate**：§8.4 验收标准（金样 diff 仅新增块，放宽阈值上限待 spike 统计后定）由 spike 结果拍板，是否认可此流程？
 - **OQ-3 迁移顺序**：P2 treecut 先行（语义最重先验明模式，推荐）还是先拿 GlowingSquad 类简单插件练手？
@@ -340,8 +337,8 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 
 - 引 okaeri-configs：否决（§4），重估条件记录在案（写回需求升级为任意值改写 + 热编辑时）。
 - 布尔 yes/no/on/off：跟随 snakeyaml 标准（与 Bukkit 现状一致），不做词表收紧（§6 S4）。
-- 取值一律单层键、点号仅诊断；YamlDoc 编辑路径 = 段列表：定案（§9），绕开 Bukkit 路径歧义。
+- 取值一律单层键、点号仅诊断；YamlMerge 按缺失路径段列表工作：定案（§9），绕开 Bukkit 路径歧义。
 - 数据文件（persist 体系）不纳入：定案（§2）。
 - LanguageBundle 宽容语义（坏文件 warn 不崩）保留在调用点，不因引擎加严而改变：定案（§6 S8）。
-- 写回路线：**Node 级往返为定案路线**（§8，捆绑 2.6 实证可行）；文本模板合并 = fallback，触发条件 = 布局噪音 gate 不过（§8.4）——两者均在 P1 spike 用真实语料验证。
+- 写回路线：**spike 实证裁定文本模板合并为定案路线**（§8.1，真实语料数据：Node 往返 config.yml +46/−44、10-vanilla +15/−12、20-custom +13/−9）——磁盘字节原样 + 只插缺失键块；Node 往返否决并记档为"为何不用"证据。
 - 写回触发：仅升级补键（configVersion 门内、putIfAbsent、写前备份）与显式管理命令；运行期永不自动写回：定案（§8.3）。
