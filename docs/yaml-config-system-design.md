@@ -336,9 +336,57 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 ## 15. 已否决/已定案的记录
 
 - 引 okaeri-configs：否决（§4），重估条件记录在案（写回需求升级为任意值改写 + 热编辑时）。
+- **绑定/schema 层自研（ConfigSchema 计划）退役**：改为采用 Exlll ConfigLib 现成实现（§16，用户裁决）。
 - 布尔 yes/no/on/off：跟随 snakeyaml 标准（与 Bukkit 现状一致），不做词表收紧（§6 S4）。
 - 取值一律单层键、点号仅诊断；YamlMerge 按缺失路径段列表工作：定案（§9），绕开 Bukkit 路径歧义。
 - 数据文件（persist 体系）不纳入：定案（§2）。
 - LanguageBundle 宽容语义（坏文件 warn 不崩）保留在调用点，不因引擎加严而改变：定案（§6 S8）。
 - 写回路线：**spike 实证裁定文本模板合并为定案路线**（§8.1，真实语料数据：Node 往返 config.yml +46/−44、10-vanilla +15/−12、20-custom +13/−9）——磁盘字节原样 + 只插缺失键块；Node 往返否决并记档为"为何不用"证据。
 - 写回触发：仅升级补键（configVersion 门内、putIfAbsent、写前备份）与显式管理命令；运行期永不自动写回：定案（§8.3）。
+
+## 16. ConfigLib 整合裁决（绑定层采用现成实现）
+
+用户裁决（2026-09-09）：**绑定/schema 层不自研**（config 包内自研 ConfigSchema 计划退役），
+采用 [Exlll ConfigLib](https://github.com/Exlll/ConfigLib)（MIT，活跃维护；本段以 v4.8.1 为准）。
+
+### 实证（真实 jar v4.8.1 spike，本次实现前实测）
+
+| 行为 | 实测结果 |
+|---|---|
+| `load()` | **只读**：不动盘、忽略未知键（可与家族工具组合） |
+| `update()` | **整文件语义重写**：手写顶部/行尾注释丢失、排版规范化、**未知键被删除**；注释仅来自 `@Comment` 注解 |
+| 空/纯注释文件 | `load` 抛 `ConfigurationException`（与家族 YamlMap「空文档→空 Map」语义不同，需材质化兜底） |
+| 命名 | `NameFormatters.LOWER_KEBAB_CASE`：字段 `maxDistance` → 键 `max-distance` |
+| 交付 | Maven Central `de.exlll:configlib-yaml:4.8.1`；GitHub release `configlib-paper-4.8.1-all.jar`（自含 relocate 的 snakeyaml-engine，Java 17 字节码） |
+
+### 整合形态（混合，试点已按此落地）
+
+- **ConfigLib 管**：`@Configuration` 注解绑定（字段默认值/`@Comment`/复杂类型/记录/Bukkit `ConfigurationSerializable`）、**只读 `load`**。
+- **家族库仍管**（沿用 §7/§8/§9）：
+  - 材质化 `saveDefaultConfig` / `ConfigFile.copyDefaultIfMissing`（保留发布注释）；
+  - **YamlMap 预检 lint**（重复键/时间戳/BOM/多文档加固——ConfigLib 不提供）；
+  - `ConfigVersions` 版本迁移（ConfigLib 无版本化）；
+  - **写回一律走 YamlMerge/UpgradePatch**（字节保真 + 不删未知键 + 不覆盖），**常规加载路径不调用 `store.update()`**；
+  - `IssueCollector`/`UnknownKeys` 校验与未知键告警（血缘自 treecut ConfigValidator）。
+- **不做的组合**：除非某插件明确选择「schema 为唯一真相」的自我修复语义（此时可接受 `update()` 删未知键），否则禁止用 update 做升级补键。
+
+### 提供方式
+
+- 服务端 `ConfigLib-<ver>-all.jar` 作为前置插件（plugins/），消费方 `paper-plugin.yml` 声明
+  `dependencies.server.ConfigLib: {load: BEFORE, required: true}`。
+- 消费方编译：本地 `libs/configlib-paper-<ver>-all.jar`（compileOnly + testImplementation，自包含，
+  与 PepperUnion-linkage 同模式）；或 Maven Central `de.exlll:configlib-yaml`（仅编译；测试/运行解析器
+  需另备——推荐前者）。
+
+### 试点
+
+GlowingSquad `feat/configlib` 分支：`@Configuration SquadConfig`（`maxDistance`→`max-distance`）+ 只读 load
++ 3 个纯 JVM 绑定测试（kebab 映射/未知键不动盘/缺键回落 + 空文件异常文档化）全绿；全构建绿；已提交。
+
+### 影响与后续
+
+- ConfigSchema 自研计划退役（未实现，无遗留代码）。
+- P3 迁移风格 = `@Configuration` 模型 + 家族工具（材质化 / YamlMap lint / ConfigVersions / YamlMerge 写回 / IssueCollector）。
+- treecut 的多文件 profile 合并（extends/字典序/tag 展开/土壤家族）仍是领域层；config.yml 的绑定部分后续按此形态接。
+- 风险：服务器新增 ConfigLib 前置 jar（升级集中一处）；ConfigLib 空文件语义需材质化兜底；
+  若未来出现「任意值改写 + 注释保留」硬需求，okaeri 重估（§4）仍是最短路，`update()` 不满足字节保真。
