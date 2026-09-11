@@ -1,0 +1,5 @@
+# 默认配置（ConfigFileStore 材质化测试用）
+# 最大距离（格）
+max-distance: 128
+# 自动使用
+auto-use: true

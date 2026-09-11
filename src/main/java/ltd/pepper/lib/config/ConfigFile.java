@@ -27,7 +27,20 @@ public final class ConfigFile {
      */
     public static boolean copyDefaultIfMissing(Path dataFolder, String resourcePath, ClassLoader loader)
             throws IOException {
-        Path target = dataFolder.resolve(resourcePath);
+        return copyDefaultIfMissing(dataFolder, resourcePath, loader, resourcePath);
+    }
+
+    /**
+     * 首跑落盘（双路径版）：classpath 默认资源可在子目录（如 {@code defaults/config.yml}），
+     * 而数据目录里的文件名保持运维可见的相对路径（如 {@code config.yml}）。
+     *
+     * @param targetPath 数据目录下的相对目标路径
+     * @param resourcePath classpath 资源路径
+     * @return 是否新建了文件
+     */
+    public static boolean copyDefaultIfMissing(
+            Path dataFolder, String targetPath, ClassLoader loader, String resourcePath) throws IOException {
+        Path target = dataFolder.resolve(targetPath);
         if (Files.exists(target)) {
             return false;
         }

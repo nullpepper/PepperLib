@@ -1,0 +1,3 @@
+# 嵌套子目录默认资源（测试用：classpath 资源路径 ≠ 数据目录文件名）
+max-distance: 256
+auto-use: false

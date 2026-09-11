@@ -58,7 +58,7 @@ Pepper 系插件目前有 **四种互不相通的 YAML 配置技术**，同一�
 | PepperLib i18n | 裸 snakeyaml | lang/<locale>.yml | 只读；宽容降级（坏文件 warn 不崩） | 低（G2 先行） |
 | PepperClaim | ConfigSource SPI + BukkitYamlSource 实现 | config.yml + worlds.yml + tracks.yml + slots.yml… | 读写：缺键补默认并 `disk.save()` 落盘（**对象往返毁注释**）；diffLog() 报告 | 中（SPI 接缝现成；写回语义改为升级触发，§8.3） |
 | PepperUnion | Bukkit FileConfiguration 手工 getter → 域 record | config.yml | 只读 | 中（PluginSettings 内部委托面大） |
-| GlowingSquad | Bukkit config | config.yml（1 键） | 只读（数据文件除外） | 低 |
+| GlowingSquad | 自研注解绑定 `@ConfigModel` + ConfigFileStore（0.12.0 起；原 ConfigLib 试点已反迁） | config.yml（1 键） | 只读（数据文件除外） | 低 |
 | PepperMinecart | Bukkit PluginConfig | config.yml | 只读 | 低 |
 | PepperTrashBin | ConfigManager + StorageConfig | config.yml 等 | 混合 | 中 |
 | UserPrefix / PepperPvpArena | Bukkit + 数据文件混合 | config.yml + 地图/前缀文件 | 混合 | 边界判定（OQ-5）后定 |
@@ -298,9 +298,12 @@ public final class UpgradePatch {
 
 ### P3 —— 逐家迁移（每插件独立分支，先简单后复杂）
 
-GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → PepperUnion（PluginSettings 内部实现换，域 record 不动）→ **PepperClaim**（兑现 ConfigSource SPI 预留：新实现类换入；`disk.save()` 语义改升级/命令触发写回，行为变更通告 OQ-2b）→ UserPrefix / PepperPvpArena（边界判定 OQ-5）。
+GlowingSquad → ~~PepperTreeCut~~（2026-09-10 完成，见 §16.2）→ ~~PepperMinecart~~（完成）
+→ PepperTrashBin → ~~PepperUnion~~（PluginSettings 内部实现换，域 record 不动，完成）→
+**PepperClaim**（兑现 ConfigSource SPI 预留：新实现类换入；`disk.save()` 语义改升级/命令触发写回，行为变更通告 OQ-2b）→ UserPrefix / PepperPvpArena（边界判定 OQ-5）。
 
 每家验收：默认值等价测试（新旧默认值表对比）+ 实服冒烟 + 零 `org.bukkit.configuration` import。
+（P3 首批三家已完成默认值等价测试与零 import 复核；实服冒烟按当前裁决延后。）
 
 ## 12. 测试与发布
 
@@ -336,7 +339,8 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 ## 15. 已否决/已定案的记录
 
 - 引 okaeri-configs：否决（§4），重估条件记录在案（写回需求升级为任意值改写 + 热编辑时）。
-- **绑定/schema 层自研（ConfigSchema 计划）退役**：改为采用 Exlll ConfigLib 现成实现（§16，用户裁决）。
+- **绑定/schema 层**：原「自研退役、采用 Exlll ConfigLib（§16，2026-09-09 裁决）」于同日出反转
+  ——**重新自研**（§16.1，0.12.0 实现：注解绑定 + 注释操作 + 运行时存储），ConfigLib 计划废弃。
 - 布尔 yes/no/on/off：跟随 snakeyaml 标准（与 Bukkit 现状一致），不做词表收紧（§6 S4）。
 - 取值一律单层键、点号仅诊断；YamlMerge 按缺失路径段列表工作：定案（§9），绕开 Bukkit 路径歧义。
 - 数据文件（persist 体系）不纳入：定案（§2）。
@@ -344,7 +348,160 @@ GlowingSquad → PepperMinecart（单键，各半日）→ PepperTrashBin → Pe
 - 写回路线：**spike 实证裁定文本模板合并为定案路线**（§8.1，真实语料数据：Node 往返 config.yml +46/−44、10-vanilla +15/−12、20-custom +13/−9）——磁盘字节原样 + 只插缺失键块；Node 往返否决并记档为"为何不用"证据。
 - 写回触发：仅升级补键（configVersion 门内、putIfAbsent、写前备份）与显式管理命令；运行期永不自动写回：定案（§8.3）。
 
-## 16. ConfigLib 整合裁决（绑定层采用现成实现）
+## 16. 绑定层裁决反转：自研替代 ConfigLib（0.12.0）
+
+> **2026-09-09 用户裁决反转**：绑定/schema 层**不自研 → 自研**。下方原 §16 记录保留作历史
+> 审计（曾裁决采用 Exlll ConfigLib）；0.12.0 起以自研实现替换（§16.1），GlowingSquad 已反向迁移。
+
+### 16.1 自研方案（现行，0.12.0）
+
+- **绑定**：注解驱动 `@ConfigModel`/`@ConfigPath`/`@ConfigComment`/`@ConfigRange` →
+  `Bindings`（scheme 内核 `ConfigSchema` 为 package-private 内部实现，不进入 japicmp 面）。
+  支持 POJO（字段初始化默认值 + 嵌套 `@ConfigModel` 节）与 record（组件注解，默认值类型零值）。
+- **注释操作**（核心需求）：
+  - `YamlComments` 解析条目 → 归属注释（块注释 = 条目标正上方 `#` 行，行内 = 同行尾部 `#`；
+    空白分隔行过滤）；
+  - `ConfigDoc.withComments` 运行时改块/行内注释，`withValue` 改条目标值——**字节保真**
+    （只动目标区，复用 §8 YamlMerge 的 AST 行号切片路线）；
+  - `@ConfigComment` 注解在默认文件发射/材质化时写入注释。
+- **运行时存储**：`ConfigFileStore<T>`（首跑材质化 / set/setComments 即时重绑定 / save 原子写 /
+  reload 失败保旧 / upgrade 升级补键）+ `ConfigGroup` 多文件聚合。
+- **Configurate 能力对齐增量（0.12.0 追加）**：`ConfigDoc.children` 子节点遍历 +
+  `mergeDefaults` 节内 putIfAbsent 合并；文档头注释 `@ConfigHeader`/`header()`/`withHeader()`；
+  自定义类型序列化注册点 `ConfigCodec<T>` + `@Codec`（字段级；接口与注解避免同名）。
+  保持自研 API、零新依赖，不做 HOCON/JSON 多格式、不引入 org.spongepowered.configurate。
+- **附加约束**：继续零新第三方依赖（仅 snakeyaml 2.6）；写回仍只显式触发、字节保真、
+  putIfAbsent 不覆盖管理员值。
+- **迁移**：GlowingSquad 已从 ConfigLib 反向迁移（`@ConfigPath("max-distance")` + ConfigFileStore，
+  `SquadConfigStoreTest` 4 例描述新行为：kebab 映射/未知键不动盘/缺键回落/**空文件回默认**
+  ——与 ConfigLib 空文件抛异常不同，为改进）；其余 P3 插件迁移风格 = 本方案 + §7/§8/§9 工具链。
+
+### 16.2 P3 首批三家迁移（0.13.0）——TreeCut → Minecart → Union
+
+> **2026-09-10 完成**：PepperTreeCut、PepperMinecart、PepperUnion 三家配置层迁到
+> `@ConfigModel` + `ConfigFileStore`；lib 0.13.0 为此新增下列能力。验收全绿：
+> 构建（含 spotless/spotbugs/verifyPepperLibVersion 门）+ 默认值等价测试 + 迁移层零
+> `org.bukkit.configuration` import；实服冒烟按裁决延后。
+
+**lib 0.13.0 新增（全部 additive，无破坏性变更）**：
+
+- **Map 一等绑定**（`ConfigSchema.ValueType.MAP`）：`Entry` 增加 `min/max/clamp`
+  （作为数值列附加在 MAP 行）；`Builder.field` 全参数重载；`Bindings` 的
+  `typeOf/typeZero/coerce/coerceKey/coerceValue/mapTypeArgs/emit` 全链支持嵌套 Map
+  逐行缩进（空 `{}` 发射）。Union 的限高/经验曲线、tier caps 借此直绑（或按需以
+  原始 `Map<String,Object>` 绑定，逐条校验语义保留在域层）。
+- **`ConfigPostLoad<T>` 后处理钩子**（函数式接口 `apply(T, IssueCollector)`）：
+  `Bindings.load(..., postLoad)` 与 `ConfigFileStore.load(..., postLoad)` 重载，
+  store 的 read/commitDoc/reload 三径贯穿。TreeCut 方块集解析、Minecart 材质集
+  解析、Union 领域归一后的跨字段派生（如 name-pattern 联动 max-name-length）落此处。
+- **`@ConfigRange(clamp=true)` 夹紧模式**：越界修正到边界保留数值（而非回落默认），
+  复刻 Minecart 旧 `intInRange/doubleInRange` 的夹紧语义。
+- **NaN/Infinity 拦截**（S15 延续）：INT/LONG/DOUBLE resolve 先 `Double.isFinite`，
+  非有限 → WARN + 回落默认。
+- **枚举大小写不敏感**：`valueOf(...trim().toUpperCase(Locale.ROOT))`，对齐 Minecart
+  旧 `parseEnum` 大写化语义。
+- **emit 兄弟节 bug 修复**：旧 stack 逻辑无法处理同深度异键兄弟节（重复键）→ 重写为
+  longest-common-prefix chain（`common` 前缀 + `chain.remove` + 新节展开），
+  新增 MultiSection/emitSeparatesSiblingSectionsAtSameDepth 测试锁定。
+- **`YamlScalar` flow map 发射**：`Map` 编码为 `{k: v}`、可作 flow list 元素——支持
+  Union `activity.tiers` 默认形态的模型出货。
+
+**三家迁移形态（行为等价，域 record / getter 面不动）**：
+
+| 插件 | 模型 | 迁移要点 |
+|---|---|---|
+| PepperTreeCut | `TreeCutConfigModel` | config.yml 主树注解绑定（camelCase 显式 `@ConfigPath`）；profiles 多文件/tag 展开留 ConfigLoader 领域层；方块集经 post-load + `scalarTolerant`（标量→单元素宽容）+ raw root 补读；minFall 缺省 = max 的跨字段默认经 post-load + `containsDotted` |
+| PepperMinecart | `MinecartConfigModel` | `PluginConfig` 改为 facade（ConfigFileStore + volatile 模型 + 旧 getter 全保留）；数值 `clamp=true`；枚举大小写不敏感；Material 集经 post-load matchMaterial+isBlock（WARN 跳过）；pepperlib-api.properties 版本门；测试从 `apply(FileConfiguration)` 改 `getValues(true)` |
+| PepperUnion | `UnionSettingsModel` | `PluginSettings.from(FileConfiguration)` → `from(UnionSettingsModel)`（域 record 与旧 getter 不动，全部 LOG 告警与逐条校验语义保留在 from）；Map 字段以原始形态绑定、归一仍走 `readIntMap/readLongMap/readStringIntMap/readActivityTiers`；`storage.*` 不在模型（StorageSettings 本轮不迁移，仍走 FileConfiguration）；reloadAll 改 `settingsStore.reload()` |
+
+**附带修复（迁移暴露的存量问题，非迁移引入）**：
+
+- Union `lang/zh_CN.yml`、`lang/en_US.yml` 存在重复键 `union.reload.in-progress`
+  （0.13.0 起 YamlMap S8 严格拒绝重复键；旧 snakeyaml 宽松 last-wins）。按旧语义
+  保留后出现的条目、删除前一条。
+- Union `config/spotbugs/exclude.xml` 两处类名仍为旧包 `io.pepper.union.*`（重构
+  io→ltd 时漏改），导致预注册排除失效 → SpotBugs 报真实误报两例。改为 `ltd.pepper.union.*`。
+
+**对抗性自审修复（delivery-review 后续轮）**：
+
+- **发现 2（哨兵泄漏，真实缺陷，已修）**：`UnionSettingsModel` 的
+  `name-pattern` 用哨兵 `\u0000name-pattern-unset` 区分"未配置→按 max-name-length 派生"
+  与"显式设置"。哨兵本身是绑定语义，但会泄漏进 `Bindings.defaultsText`（未来默认文件
+  再生成 / `ConfigFileStore.upgrade()` 补键的模板来源），把 NUL 哨兵串写进真实配置。
+  修复：字段挂 `@Codec(NamePatternCodec.class)`——`toConfig` 把哨兵发射为
+  `PluginSettings.DEFAULT_NAME_PATTERN`（默认 max-name-length=24 的派生正则），
+  显式值透传；`fromConfig` 纯透传，绑定与哨兵判定行为完全不变。护栏测试
+  `emittedDefaultsNeverLeakTheUnsetSentinel`（红→绿：修复前_FAIL，修复后_PASS）。
+- **发现 6（运行接线零测试覆盖，已补）**：`PepperUnionPlugin.onEnable` 的
+  `ConfigFileStore.load` 与 `reloadAll` 的 `settingsStore.reload()` 无任何测试直接覆盖。
+  补 `UnionSettingsStoreWiringTest`（纯 JVM，`@TempDir` 数据目录 + 真实发布资源）锁：
+  首跑 copy-once 材质化（保住 `storage.*`）、绑定无 ERROR、reload 失败保留旧快照 +
+  ERROR issue（旧值取非默认 75 与默认 50 可区分，证明不是静默回默认）、reload 拾取
+  磁盘合法修改。
+
+**迁移层零 `org.bukkit.configuration` import 复核（三家 config 包）**：
+
+```
+ltd.pepper.treecut.config → ZERO
+ltd.pepper.pepperminecart.config → ZERO
+ltd.pepper.union.config → ZERO（StorageSettings / storage 包本轮明确保留 FileConfiguration）
+```
+
+### 16.3 ConfigMe 对照吸收（0.14.0）——类型系统 / 值级合法性 / 可插拔迁移
+
+> **2026-09-10 完成**：对照文档 `docs/ConfigMe-vs-PepperLib.md`（AuthMe/ConfigMe v1.4.1
+> master 源码逐项核对）。§7 四点借鉴中第 3 点（ValueWithComments 元素级随行注释）经
+> 用户裁决**维持现状**（当前注释机制已覆盖同需求，见本节末"注释机制说明"）；第 1/2/4 点
+> 三项对齐实现，验收 = 全仓 `:check` 绿（spotless/spotbugs/javadoc/japicmp）。
+
+**① 类型系统扩展（对齐 ConfigMe 内建 Property 类型）**：`ConfigSchema.ValueType` 新增
+`OPTIONAL/SET/ARRAY/TEMPORAL`，`Bindings` 的 `typeOf/typeZero/coerce/coerceElement/emit`
+全链支持：
+
+- `Optional<T>`：缺失/空 → 字段默认（缺省 `Optional.empty()`），存在即包裹，元素按泛型
+  强制；发射时空 Optional → 空标量 `key:`（回读 null → empty）。**关键语义差异**：自研
+  "缺失 → 字段默认"（与全系统一致），ConfigMe OptionalProperty 缺失 → `Optional.empty()`
+  （字段默认仅在导出用）。文档化记录，不逐字复刻 ConfigMe 的"默认被忽略"。
+- `Set<T>`：`LinkedHashSet` 保序去重（对齐 `SetPropertyType`），元素按泛型强制。
+- `T[]`/基本类型数组：集合/数组 → 目标数组逐元素强制（对齐 `ArrayPropertyType` 跳过
+  硬转失败元素）。
+- `LocalDate/LocalTime/LocalDateTime`：多格式宽容解析（对齐 `TemporalType` 的多格式
+  尝试 + 导出归一），另宽容 snakeyaml 2.6 把未加引号 ISO 日期解析为 `java.util.Date`
+  的手写配置（按系统时区取本地日历）。发射走 ISO 文本 + 引号守卫。
+
+**② 值级合法性信号（对齐 `PropertyValue.isValidInResource` 二元 → 三态）**：
+`ConfigValues`（公共 API）+ `Bindings.loadWithValues → LoadResult<T>(model, values)` +
+`ConfigFileStore.values()`。每条目 `PRESENT`（资源中存在且有效）/ `MISSING`（缺失，值 =
+默认）/ `INVALID`（存在但不可用，已回落默认或夹紧）；`allValidInResource()` 对齐
+`areAllValuesValidInResource`。**与资源配置正交**：按 §9.5，类型不符/缺失仍静默不记
+issue——ConfigValues 是这类"静默回落"的机器可读通道，供迁移决策区分"缺键补默认"与
+"值不合法须重写"。Optional 条目缺失视为 PRESENT（对齐 ConfigMe "absent optional 不触发
+重写"）。
+
+**③ 可插拔迁移服务（对齐 `MigrationService`/`PlainMigrationService` 显式接口）**：
+`ConfigMigration`（`checkAndMigrate(Map root, ConfigValues values)`）+ `ConfigMigrations`
+工厂（`noop` / `versioned` 包装既有 `ConfigVersions.migrate` / `versionedWithValidity`
+= 版本步骤 + `!allValidInResource()` 任一触发）。`ConfigFileStore.load(..., ConfigMigration)`
+重载 + `migrated()` 访问器；迁移在内存 root 副本执行、只塑造类型化模型。
+**关键差异（有意保留）**：ConfigMe 的 `MigrationService` 返回 MIGRATION_REQUIRED 后由
+`SettingsManagerImpl` **立即重建保存**（`isValidInResource=false` 即全文件重写）；自研库
+始终不自动落盘（§8.3），`migrated()` 只标记"模型与磁盘分叉"，落盘仍显式
+`save()`/`upgrade()`（putIfAbsent 不覆盖管理员值）——对齐动作只取"显式接口 + 值裁决"形态，
+不取"自动重写"的激进语义。
+
+**附带修复**：`YamlScalar` 引号守卫补漏——snakeyaml 2.6 仍解析 timestamp（`2026-01-10`
+→ `java.util.Date`）与 sexagesimal（`12:34:56` → `Integer`），此前 string 值呈该形态会
+明文发射、回读被隐式转型；`FORBIDDEN_PLAIN` 补两类模式强制加引号（时间字段发射随带）。
+
+**注释机制说明（§7 第 3 点裁决：维持现状）**：ConfigMe 的 `ValueWithComments`（导出值绑
+随行注释 + UUID 去重）服务于其**重建式写回**——注释必须"跟值走"才能落盘。自研库是**保真
+式写回**（磁盘字节不动），元素级注释天然由磁盘文本保留，已有完整解析/修改链路：
+`YamlComments`（解析归属：块注释 = 条目正上方 `#` 行、行内 = 同行尾部 `#`）→
+`ConfigDoc.blockComments/inlineComment`（查询）→ `ConfigDoc.withComments`（字节保真修改）
+→ `ConfigFileStore.setComments`（运行时 API + 即时重绑定）。无 `ValueWithComments` 形态
+需求：导出值无需携带注释，因为没有"重建"这一步。详见交付文档。
+
+### 历史：原 §16（ConfigLib 整合裁决，已被 §16.1 取代）
 
 用户裁决（2026-09-09）：**绑定/schema 层不自研**（config 包内自研 ConfigSchema 计划退役），
 采用 [Exlll ConfigLib](https://github.com/Exlll/ConfigLib)（MIT，活跃维护；本段以 v4.8.1 为准）。

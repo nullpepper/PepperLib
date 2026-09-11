@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ltd.pepper"
-version = "0.11.0"
+version = "0.15.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {

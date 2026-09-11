@@ -4,6 +4,158 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.15.0] - 2026-09-11
+
+### 新增（record 形态模型的嵌套与默认来源：PepperClaim 迁移驱动，全链 additive）
+
+- **record 模型支持嵌套与集合元素**（此前 record 路径只支持逐组件标量，嵌套 record 组件直接
+  `IllegalArgumentException: unsupported config field type`；`List<record>`/`Map<String,record>`
+  更糟——静默产出裸 `Map` 元素，留待调用方 CCE）：
+  - record 组件为嵌套 `@ConfigModel` record → 按节平铺进 schema（子条目路径带前缀），绑定
+    期用前缀整体构造，不再反射写 final 字段；
+  - `List<@ConfigModel record>` 与 `Map<String,@ConfigModel record>` → 元素按元素自身 schema
+    构造真 record（元素缺键回落该元素的默认来源），诊断并入同一 `IssueCollector`；
+  - POJO（class）模型里的 record 字段同样支持：整体构造后写回字段（此前 class 模型 + record
+    节 = `IllegalAccessException`，因为 record 字段不可反射改写）；
+  - **未标注 `@ConfigModel` 的 record 元素在 schema 构建期报错**（点名键与类型），取代原来的
+    静默裸 Map —— 旧行为会把类型错误推迟到运行期使用处才暴露。
+- **`@ConfigDefaults`（新注解）**：标注在模型自己的 `static` 无参工厂方法上，绑定层用它取代
+  "类型零值"作为 schema 默认值，并递归用于嵌套 record 节与集合元素。record 没有字段初值，此前
+  缺键一律回落 `0`/`false`/`""`——对 `CoreSettings.defaults()` 这类集中式默认，会把缺失的
+  `storage.host` 变成空串。方法须为 `static` 无参且返回模型类型，否则 schema 构建期报错。
+- **损坏文件的回落改为出厂资源**：首跑遇到不可解析的文件时，store 过去用 `Bindings.defaultsText(model)`
+  合成回落文本——对 `List<record>`/`Map<String,record>` 这类默认值只能吐出 `[BP[upTo=1000.0, ...]]`
+  之类的 toString 文本（实测），回读时整条键降级为 INVALID。现在回落**逐字取用 classpath 出厂资源**
+  （注释与取值都保留），资源自身不可解析时才退到合成文本。ERROR 通告与"不写盘"语义不变。
+- 声明结果按类缓存（`ClassValue`）：schema/叶子/嵌套引用只依赖类结构，与磁盘无关。
+- **`@Codec` 支持 record 组件**：`@Codec` 的 `@Target` 补 `RECORD_COMPONENT`，`ComponentMember.codec()`
+  读组件上的注解。此前 `@Codec` 只标 `FIELD`，而 FIELD-only 注解在 record 组件上不可经
+  `RecordComponent.getAnnotation()` 读到（实测），record 模型因此无法使用自定义序列化——金额
+  "YAML 写元、模型存分" 这类换算只能靠调用方手工解析。`@ConfigPath/@ConfigComment/@ConfigRange`
+  本来就是双 target，这次补齐一致性。
+- **双路径装载**（`ConfigFileStore.load(model, dataFolder, fileName, resourcePath, loader[, postLoad[, migration]])`
+  与 `ConfigFile.copyDefaultIfMissing(dataFolder, targetPath, loader, resourcePath)`）：数据目录文件名
+  与 jar 内默认资源路径解耦。此前两者必须是同一个相对路径，默认资源只能放 jar 根目录；PepperClaim
+  这类把默认文件放在 `defaults/` 子目录的插件无处落脚。现有重载行为不变（两者相同）。
+
+### 兼容性
+
+- 全链 additive：既有 POJO 模型（含嵌套 `@ConfigModel` class 节）与 record 标量模型行为不变，
+  0.14.0 的 443 个测试全绿；新增 `BindingsRecordModelsTest`（13 例）覆盖三层嵌套 / 嵌套 class 节里的 record 节（属主链）/ 集合元素/默认
+  来源/未标注元素快速失败/模板守卫。
+
+## [0.14.0] - 2026-09-10
+
+### 新增（ConfigMe 对照吸收：对照文档 `docs/ConfigMe-vs-PepperLib.md` §7 三项落地）
+
+- **类型系统扩展**（对齐 ConfigMe `OptionalProperty`/`SetProperty`/`ArrayProperty`/
+  `LocalDateProperty` 等内建类型，additive 一等绑定全链）：
+  - `Optional<T>` 字段（`ValueType.OPTIONAL`）：缺失/空 → 字段默认（缺省
+    `Optional.empty()`），存在即包裹；Optional 条目缺失在值级信号中视为 PRESENT
+    （对齐 ConfigMe "absent optional 不触发重写"）。默认文件发射：空 → 空标量
+    `key:`，有值 → 内值；
+  - `Set<T>` 字段（`ValueType.SET`）：`LinkedHashSet` 保序去重（对齐 ConfigMe
+    `SetPropertyType`），元素按泛型强制；发射 flow list；
+  - `T[]`/基本类型数组字段（`ValueType.ARRAY`）：集合/数组 → 目标数组逐元素强制
+    （对齐 ConfigMe `ArrayPropertyType` 跳过硬转失败元素）；发射 flow list；
+  - `LocalDate`/`LocalTime`/`LocalDateTime` 字段（`ValueType.TEMPORAL`）：多格式
+    宽容解析（LocalDate：`yyyy-MM-dd`/`dd.MM.yyyy`/`MM/dd/yyyy`；LocalTime：
+    `HH:mm`/`HH:mm:ss`/`HH.mm`；LocalDateTime：ISO + 空格分隔 + 欧/美格式），
+    另宽容 snakeyaml 2.6 把未加引号 ISO 日期解析为 `java.util.Date` 的情形
+    （对齐 ConfigMe `TemporalType`）；发射 ISO 文本（引号守卫）。
+  - `YamlScalar`/`Bindings` 的 `typeOf/typeZero/coerce/coerceElement/emit` 全链
+    新增分支；record 组件同步支持。
+- **值级合法性信号**（对齐 ConfigMe `PropertyValue.isValidInResource` 二元 → 三态）：
+  - `ConfigValues`（公共 API）：每条目 `PRESENT`（资源中存在且有效）/`MISSING`
+    （缺失，值 = 默认）/`INVALID`（存在但不可用，已回落默认或夹紧）；`allValidInResource()`
+    对齐 `areAllValuesValidInResource`；`missingKeys()`/`invalidKeys()`；
+  - `Bindings.loadWithValues(..., LoadResult<T>(model, values))` 重载；`ConfigFileStore`
+    新 `values()` 访问器——"类型不符静默回落（§9.5 不记 issue）"的机器可读通道，
+    供迁移决策区分"缺键补默认"与"值不合法须重写"。
+- **可插拔迁移服务**（对齐 ConfigMe `MigrationService`/`PlainMigrationService` 显式接口）：
+  - `ConfigMigration` 函数式接口 `checkAndMigrate(Map root, ConfigValues values)`；
+  - `ConfigMigrations` 工厂：`noop()` / `versioned(currentVersion, steps)`（包装
+    `ConfigVersions.migrate`）/ `versionedWithValidity(...)`（版本步骤 + 值不合法/
+    缺失任一触发，对齐 `PlainMigrationService` 的 `!areAllValuesValidInResource`）；
+  - `ConfigFileStore.load(..., ConfigMigration)` 重载 + `migrated()` 访问器：迁移在
+    内存 root 副本上执行、只塑造类型化模型，**绝不自动落盘**（家族规范 §8.3 不变；
+    与 ConfigMe"返回 true 即重建保存"的关键差异，落盘仍显式 `save()`/`upgrade()`）。
+
+### 修复
+
+- **`YamlScalar` 引号守卫补漏**：snakeyaml 2.6 仍解析 timestamp（`2026-01-10` →
+  `java.util.Date`）与 sexagesimal（`12:34:56` → `Integer`），此前 string 值若呈这种
+  形态会明文发射、回读被隐式转型（存量潜在 bug）；今在 `FORBIDDEN_PLAIN` 补两类
+  模式强制加引号，时间字段默认文件发射随带。
+
+### 变更
+
+- 无破坏性变更（全部 additive：新 `ValueType` 四枚、`ConfigValues`/`ConfigMigration`/
+  `ConfigMigrations` 新类型、`loadWithValues`/`LoadResult` 与 `load(..., ConfigMigration)`
+  新重载、store 新访问器；`ConfigSchema.Entry` 内部 record 增加 temporalClass 字段属
+  package-private 内核不进 japicmp 面）。API 稳定性策略保持（双模库前置插件模式）。
+- 版本 0.13.0 → 0.14.0（前置插件 apiVersion 与发布坐标同步）。
+
+## [0.13.0] - 2026-09-10
+
+### 新增（P3 首批三家迁移支撑：TreeCut → Minecart → Union 配置层接入，设计文档 §16.2）
+
+- **Map 一等绑定**（`ConfigSchema.ValueType.MAP`，`Entry` 增 `min/max/clamp` 全参数字段，
+  `Builder.field` 全参数重载）：`Bindings` 的 `typeOf/typeZero/coerce/coerceKey/coerceValue/
+  mapTypeArgs/emit` 全链支持嵌套 Map 逐行缩进发射（空 `{}`）。Union 限高/经验曲线、tier caps
+  直绑或按需以原始 `Map<String,Object>` 绑定（逐条校验语义保留在域层）。
+- **`ConfigPostLoad<T>` 装载后处理钩子**（函数式接口 `apply(T, IssueCollector)`）：
+  `Bindings.load(Class, Map, IssueCollector, ConfigPostLoad)` 与
+  `ConfigFileStore.load(Class, Path, String, ClassLoader, ConfigPostLoad)` 重载；
+  store 的 read/commitDoc/reload 三径贯穿。
+- **`@ConfigRange(clamp=true)` 夹紧模式**：越界修正到边界保留数值（clamp=false 回落默认值），
+  复刻 Minecart 旧 `intInRange/doubleInRange` 夹紧语义。
+- **NaN/Infinity 拦截**：INT/LONG/DOUBLE resolve 先 `Double.isFinite`，非有限 → WARN +
+  回落默认（延续 S15；无范围声明时同样拒绝非有限值）。
+- **枚举大小写不敏感**：`valueOf(...trim().toUpperCase(Locale.ROOT))`，对齐消费方旧
+  `parseEnum` 大写化语义（Minecart TakeOffResult/ContainerPickupPolicy 等）。
+- **`emit` 兄弟节 bug 修复**：旧 stack 逻辑无法处理同深度异键兄弟节（重复键）→ 重写为
+  longest-common-prefix chain；新增 MultiSection / emitSeparatesSiblingSectionsAtSameDepth 测试。
+- **`YamlScalar` flow map 发射**：`Map` 编码为 `{k: v}`（数字键明文），可作 flow list 元素，
+  支持 Union `activity.tiers` 默认形态的模型出货默认文件。
+
+### 变更
+
+- 无破坏性变更（全部 additive：新 `ValueType.MAP`、新重载、新接口 `ConfigPostLoad`、
+  `@ConfigRange` 新属性 `clamp`）。API 稳定性策略保持（双模库前置插件模式）。
+
+## [0.12.0] - 2026-09-09
+
+### 新增（自研配置体系：替代 ConfigLib 绑定层，设计文档 §16 裁决反转）
+
+- **注解驱动绑定** `ltd.pepper.lib.config`（公共 API，纯 JDK）：
+  - `@ConfigModel` / `@ConfigPath` / `@ConfigComment` / `@ConfigRange` 注解族；
+  - `Bindings`：注解模型 → 内部 schema → 类型化装载（POJO/record、嵌套 `@ConfigModel` 节、
+    枚举回落、范围校验 WARN）与默认文件发射（kebab 路径 + 注释 + 正确引号）、模板守卫；
+  - `ConfigSchema` / `SchemaValues` / `SchemaTemplateGuard`（package-private 内核，附
+    `ConfigSchemaTest` 红绿驱动；原退役计划残留测试已修正转绿）。
+- **注释操作**（核心新能力）：
+  - `YamlComments`：解析 YAML 文本 → 各条目的**归属注释**（条目标正上方的块注释 + 同行尾部
+    行内注释；按点号路径查询、全量枚举）；
+  - `ConfigDoc`：注释感知文档，`withValue` / `withComments` 对条目执行**字节保真**修改
+    （只动目标区，其它字节逐字不变；复用 YamlMerge 的 AST 行号切片路线）；
+  - `YamlScalar`：最小标量发射器（数字/布尔/枚举/空值明文，字符串按 YAML 规则加引号，
+    List → flow list）。
+- **运行时存储**：
+  - `ConfigFileStore<T>`：首跑材质化默认文件（copy-once 带注释）→ 注释感知文档 + 类型化
+    快照；`set`/`setComments` 即时重绑定、`save` 原子落盘、`reload` 失败保留旧快照、
+    `upgrade` 升级补键（putIfAbsent + 备份 + 注释保留）；
+  - `ConfigGroup`：多文件聚合（saveAll/reloadAll）。
+
+### 新增（Configurate 能力对齐增量，0.12.0 同版本追加）
+
+- `ConfigDoc.children(path)`/`Entry`（name/value/section）：**子节点遍历**（根或任意节，文档序）；
+- `ConfigDoc.mergeDefaults(path, Map)`：**节内 putIfAbsent 默认合并**（仅插缺失键、嵌套节整块渲染，字节保真）；
+- 文档头注释：`ConfigHeader @ConfigHeader`（类级，默认文件发射头部 `#` 注释）+
+  `ConfigDoc.header()`/`withHeader(List)`（读写字节保真）；
+- 自定义类型序列化注册点：`ConfigCodec<T>` 接口 + `Codec @Codec`（字段级）——标量/流转义
+  往返，非法输入装载回落默认（与 Values 语义一致；codec 输出 Map 暂不支持默认发射）。
+
 ## [0.11.0] - 2026-09-07
 
 ### 新增

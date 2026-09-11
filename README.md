@@ -108,7 +108,7 @@ worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
 | `ltd.pepper.lib.validation` | `Preconditions` | 稳定（lib 内部使用；插件侧无直接消费者） |
 | `ltd.pepper.lib.gui` | `GuiItemFactory` | **Experimental**：无插件消费者，菜单迁移时渐进接入 |
 | `ltd.pepper.lib.yaml` | `YamlMap` / `YamlParseException` / `YamlMerge` | **Experimental**：家族统一 YAML 解析门面 + 写回合并器（设计文档 `docs/yaml-config-system-design.md`）——SafeConstructor、禁 timestamp、重复键报错、空文档归一空 Map、BOM 剥离；写回 = 文本模板合并（磁盘字节原样 + 只插缺失键块，Node 往返经 spike 否决）；纯 JDK；运行期解析经服务端捆绑 snakeyaml（Paper 26.2 = 2.6，编译 pin 2.6） |
-| `ltd.pepper.lib.config` | `ConfigFile` / `IssueCollector` / `ConfigIssue` / `Values` / `UnknownKeys` / `ConfigVersions` / `UpgradePatch` | **Experimental**：家族统一配置文件工具链（设计文档同上 §7/§9）——生命周期（copy-once/readUtf8 BOM/原子写）、问题收集、类型化读取（与 treecut 助手同形）、未知键检测、configVersion 迁移链、升级补键；纯 JDK |
+| `ltd.pepper.lib.config` | `ConfigFile` / `IssueCollector` / `ConfigIssue` / `Values` / `UnknownKeys` / `ConfigVersions` / `UpgradePatch` / **`Bindings`** / **`ConfigDoc`** / **`YamlComments`** / **`YamlScalar`** / **`ConfigFileStore`** / **`ConfigGroup`** + `@ConfigModel`/`@ConfigPath`/`@ConfigComment`/`@ConfigRange` | **Experimental**：家族统一配置文件工具链（设计文档同上 §7/§9）——生命周期（copy-once/readUtf8 BOM/原子写）、问题收集、类型化读取（与 treecut 助手同形）、未知键检测、configVersion 迁移链、升级补键；**0.12.0 起自研绑定/注释/运行时存储层**（注解驱动绑定、注释归属解析与运行时注释/值修改、字节保真写回、多文件分组）——替代原计划引入的 Exlll ConfigLib 绑定层（设计文档 §16 裁决反转）；纯 JDK |
 
 运行期依赖：`ltd.pepper.lib.yaml`（以及后续 `config` 工具链）的解析经 `org.yaml.snakeyaml`，
 由**服务端捆绑**提供——Paper 26.2 内置 2.6，且 Bukkit YamlConfiguration 自身依赖它故必在
