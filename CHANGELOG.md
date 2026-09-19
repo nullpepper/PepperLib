@@ -4,6 +4,48 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.16.0] - 未发布
+
+### 移除（死代码清理：全部经字节码引用扫描 + 源码 grep 双证零引用）
+
+- `ConfigFileStore.loader` 私有字段：只在构造器写入、全仓库无任何读取
+  （其唯一潜在作用——强引用 ClassLoader——已由 `model` 字段承担）；
+- `ConfigPaths.join(List)`：同类的 `split`/`checkKey` 均在使用，仅 `join` 零调用；
+- `ConfigSchema.Builder` 的 4 个零调用重载：`intField(String,int)`、
+  `longField(String,long,Predicate)`、`doubleField(String,double,Predicate)`
+  与 9 参 `field(...)`（保留的 2 参/3 参重载与 10 参 `field` 不受影响）；
+- `ConfirmRegistry.clearExpired()` 的死局部 `now`（过期判断一直走
+  `ConfirmEntry.isExpired()`）；`DocAst.entryOf(...)` 的死存储
+  `String inline = null`（三个分支都会先赋值，改为延迟赋值）；
+- aswm-provider `BukkitMemoryWorldService.unloadSync` 的死局部 `mvCoreClass`：
+  `Class.forName` 探测调用保留（它是 `ClassNotFoundException` 分支的唯一来源），
+  仅去掉未被读取的变量绑定；
+- 测试代码：`ConfigFileStoreTest.materializesDefaultWhenFileMissing` 未使用的
+  `defaultCopy`；`PapiExpansionSupportTest` 只写不读的 `server` 字段
+  （`MockBukkit.mock()` 的全局副作用保留，仅不再持有返回值）。
+
+> 零消费者公共 API（`ThreadGuard` 弃用静态壳、`GuiItemFactory`、
+> `PapiExpansionSupport`、`ConfirmEntry.expiresAt()`、`SafeExpression` AST
+> 访问器、`ConfigFileStore.contains/fileName/value`、`ConfigGroup.reloadAll/size`、
+> `PageGuide`/`PageSession`/`WorldInstance`/`WorldProviderInfo` 的零调用成员等）
+> 按 API 稳定性策略**保留未删**：它们是兼容性承诺面，删除属破坏性变更。
+
+### 修复（`UnloadOptions` 契约在 aswm provider 真正落地）
+
+- `BukkitMemoryWorldService.unloadInternal` 此前**完全忽略** `UnloadOptions`
+  参数，`discardWhenEmpty()` 文档承诺的"世界仍有玩家即拒绝"从未生效（
+  `WORLD_NOT_EMPTY` 错误码全生态零产生）。现在 `requireEmpty=true` 且实例世界
+  仍有玩家 → 以 `WORLD_NOT_EMPTY` 拒绝卸载，实例保持注册、世界不卸载；
+  `discardForShutdown()`（`requireEmpty=false`）不被该前置检查拦截，关服清理
+  流程不因玩家在场而中断；
+- `unloadSync` 此前丢弃 `Bukkit.unloadWorld` 的返回值并吞掉异常，会在卸载失败时
+  照常注销实例、删除实例目录——即"假装已释放"（`WORLD_UNLOAD_FAILED` 因此长期
+  是零引用死常量）。现在后端失败（返回 `false` 或抛异常）→
+  `WORLD_UNLOAD_FAILED`，实例保留在注册表（状态回退 `ACTIVE`）供重试，磁盘清理
+  推迟到后端确认卸载成功之后；
+- `close()` 关服清理遇到上述失败时不再静默吞掉，改为记录失败实例（实例 id +
+  原因）后继续清理其余实例。
+
 ## [0.15.0] - 2026-09-11
 
 ### 新增（record 形态模型的嵌套与默认来源：PepperClaim 迁移驱动，全链 additive）

@@ -282,11 +282,6 @@ final class ConfigSchema {
             return this;
         }
 
-        public Builder intField(String key, int def) {
-            add(key, ValueType.INT, def, null);
-            return this;
-        }
-
         public Builder intField(String key, int def, Predicate<Integer> bounds) {
             add(key, ValueType.INT, def, n -> bounds.test(n.intValue()));
             return this;
@@ -297,18 +292,8 @@ final class ConfigSchema {
             return this;
         }
 
-        public Builder longField(String key, long def, Predicate<Long> bounds) {
-            add(key, ValueType.LONG, def, n -> bounds.test(n.longValue()));
-            return this;
-        }
-
         public Builder doubleField(String key, double def) {
             add(key, ValueType.DOUBLE, def, null);
-            return this;
-        }
-
-        public Builder doubleField(String key, double def, Predicate<Double> bounds) {
-            add(key, ValueType.DOUBLE, def, n -> bounds.test(n.doubleValue()));
             return this;
         }
 
@@ -325,20 +310,6 @@ final class ConfigSchema {
         public Builder list(String key) {
             add(key, ValueType.LIST, List.of(), null);
             return this;
-        }
-
-        /** 全参数添加（注解绑定层使用：含注释、范围守卫与 clamp 模式）。 */
-        public Builder field(
-                String key,
-                ValueType type,
-                Object def,
-                Class<? extends Enum<?>> enumClass,
-                Predicate<Number> bounds,
-                double min,
-                double max,
-                boolean clamp,
-                List<String> comments) {
-            return field(key, type, def, enumClass, null, bounds, min, max, clamp, comments);
         }
 
         /**

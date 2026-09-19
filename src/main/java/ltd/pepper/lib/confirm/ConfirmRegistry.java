@@ -102,7 +102,6 @@ public final class ConfirmRegistry<T> {
 
     /** 惰性清扫所有过期条目。 */
     public int clearExpired() {
-        final long now = System.currentTimeMillis();
         int removed = 0;
         for (final var iterator = this.pending.entrySet().iterator(); iterator.hasNext(); ) {
             if (iterator.next().getValue().isExpired()) {

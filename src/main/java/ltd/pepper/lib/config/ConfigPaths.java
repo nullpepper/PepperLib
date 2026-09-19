@@ -28,9 +28,4 @@ final class ConfigPaths {
         }
         return out;
     }
-
-    /** 段列表拼接为点号路径。 */
-    static String join(List<String> segments) {
-        return String.join(".", segments);
-    }
 }

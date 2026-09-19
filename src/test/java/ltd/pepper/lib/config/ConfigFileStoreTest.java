@@ -75,7 +75,6 @@ class ConfigFileStoreTest {
 
     @Test
     void materializesDefaultWhenFileMissing() {
-        Path defaultCopy = tempDir.resolve("new-file.yml");
         ConfigFileStore<Sample> store = ConfigFileStore.load(
                 Sample.class, tempDir, "configtest-default.yml", getClass().getClassLoader());
         assertTrue(store.get().maxDistance == 128);

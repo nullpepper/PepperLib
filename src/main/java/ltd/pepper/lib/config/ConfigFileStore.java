@@ -23,7 +23,6 @@ public final class ConfigFileStore<T> {
     private final Class<T> model;
     private final Path file;
     private final String resourcePath;
-    private final ClassLoader loader;
     private final ConfigPostLoad<T> postLoad;
     private final ConfigMigration migration;
     private volatile Current<T> current;
@@ -36,14 +35,12 @@ public final class ConfigFileStore<T> {
             Path dataFolder,
             String fileName,
             String resourcePath,
-            ClassLoader loader,
             Current<T> initial,
             ConfigPostLoad<T> postLoad,
             ConfigMigration migration) {
         this.model = model;
         this.file = dataFolder.resolve(fileName);
         this.resourcePath = resourcePath;
-        this.loader = loader;
         this.postLoad = postLoad;
         this.migration = migration;
         this.current = initial;
@@ -146,7 +143,7 @@ public final class ConfigFileStore<T> {
             Bindings.LoadResult<T> lr = Bindings.loadWithValues(model, fallbackRoot, new IssueCollector(), postLoad);
             initial = new Current<>(doc, lr.model(), lr.values(), false, issues.issues());
         }
-        return new ConfigFileStore<>(model, dataFolder, fileName, resourcePath, loader, initial, postLoad, migration);
+        return new ConfigFileStore<>(model, dataFolder, fileName, resourcePath, initial, postLoad, migration);
     }
 
     /** 读 classpath 默认资源文本（缺失/IO 错返回 null，交由调用方退到注解默认文本）。 */

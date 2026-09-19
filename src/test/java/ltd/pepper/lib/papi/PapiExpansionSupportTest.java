@@ -11,7 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
-import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockito.Mockito;
 
 /**
@@ -21,11 +20,10 @@ import org.mockito.Mockito;
  */
 class PapiExpansionSupportTest {
 
-    private ServerMock server;
-
     @BeforeEach
     void setUp() {
-        this.server = MockBukkit.mock();
+        // 副作用必需：MockBukkit.mock() 注册全局 mock 服务器（返回值无需持有）
+        MockBukkit.mock();
     }
 
     @AfterEach

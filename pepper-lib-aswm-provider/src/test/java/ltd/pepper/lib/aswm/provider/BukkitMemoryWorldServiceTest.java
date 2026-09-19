@@ -1,26 +1,35 @@
 package ltd.pepper.lib.aswm.provider;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import ltd.pepper.lib.task.BukkitPepperScheduler;
 import ltd.pepper.lib.world.UnloadOptions;
 import ltd.pepper.lib.world.WorldInstance;
 import ltd.pepper.lib.world.WorldInstanceRequest;
 import ltd.pepper.lib.world.WorldInstanceState;
+import ltd.pepper.lib.world.WorldProviderError;
+import ltd.pepper.lib.world.WorldProviderException;
 import ltd.pepper.lib.world.WorldTemplateRef;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 /**
  * {@link BukkitMemoryWorldService} 生命周期测试（MockBukkit）：
@@ -85,6 +94,57 @@ class BukkitMemoryWorldServiceTest {
 
         await(this.service.unload("match-2", UnloadOptions.discardForShutdown()));
         assertTrue(this.service.find("match-2").isEmpty());
+    }
+
+    /** 业务卸载契约：{@code discardWhenEmpty} 在世界仍有玩家时必须拒绝，且实例不被卸载。 */
+    @Test
+    void unloadWhenEmptyRefusesBusyInstance() throws Exception {
+        final WorldInstance instance = createAndAwait("match-busy");
+        final World world = Bukkit.getWorld(instance.worldName());
+        assertNotNull(world, "world should be registered");
+        final PlayerMock player = this.server.addPlayer("BusyPlayer");
+        player.teleport(new Location(world, 0.5, 64, 0.5));
+        assertFalse(world.getPlayers().isEmpty(), "player should be inside the instance world");
+
+        final CompletionException thrown = assertThrows(
+                CompletionException.class,
+                () -> await(this.service.unload(instance.instanceId(), UnloadOptions.discardWhenEmpty())));
+        final WorldProviderException cause = assertInstanceOf(WorldProviderException.class, thrown.getCause());
+        assertEquals(WorldProviderError.WORLD_NOT_EMPTY, cause.error());
+
+        assertTrue(
+                this.service.find(instance.instanceId()).isPresent(),
+                "refused unload must keep the instance registered");
+        assertNotNull(Bukkit.getWorld(instance.worldName()), "refused unload must not unload the world");
+    }
+
+    /**
+     * 关服清理契约：{@code discardForShutdown} 不因玩家在场而被前置拒绝（区别于
+     * {@code discardWhenEmpty}），但后端 {@code unloadWorld} 拒绝时不得假装已释放——
+     * 报 {@link WorldProviderError#WORLD_UNLOAD_FAILED} 并保留实例。
+     */
+    @Test
+    void unloadForShutdownReportsBackendFailureAndKeepsInstance() throws Exception {
+        final WorldInstance instance = createAndAwait("match-shutdown");
+        final World world = Bukkit.getWorld(instance.worldName());
+        assertNotNull(world, "world should be registered");
+        final PlayerMock player = this.server.addPlayer("ShutdownPlayer");
+        player.teleport(new Location(world, 0.5, 64, 0.5));
+        assertFalse(world.getPlayers().isEmpty(), "player should be inside the instance world");
+
+        final CompletionException thrown = assertThrows(
+                CompletionException.class,
+                () -> await(this.service.unload(instance.instanceId(), UnloadOptions.discardForShutdown())));
+        final WorldProviderException cause = assertInstanceOf(WorldProviderException.class, thrown.getCause());
+        assertEquals(
+                WorldProviderError.WORLD_UNLOAD_FAILED,
+                cause.error(),
+                "backend refused the unload; the provider must not pretend the instance was released");
+
+        assertTrue(
+                this.service.find(instance.instanceId()).isPresent(),
+                "failed unload must keep the instance registered");
+        assertNotNull(Bukkit.getWorld(instance.worldName()), "failed unload must keep the world");
     }
 
     private WorldInstanceRequest request(final String instanceId) {

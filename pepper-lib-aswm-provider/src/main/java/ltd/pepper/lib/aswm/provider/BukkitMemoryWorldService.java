@@ -181,6 +181,11 @@ class BukkitMemoryWorldService implements InstanceWorldService {
         for (final Entry entry : snapshot) {
             try {
                 unloadSync(entry.instance().instanceId());
+            } catch (final WorldProviderException e) {
+                // 关服清理不中断（UnloadOptions#discardForShutdown），但必须记录失败实例。
+                this.plugin
+                        .getLogger()
+                        .warning("实例世界卸载失败，实例保留待下次清理: " + entry.instance().instanceId() + " - " + e.getMessage());
             } catch (final Exception ignored) {
             }
         }
@@ -253,13 +258,25 @@ class BukkitMemoryWorldService implements InstanceWorldService {
             return CompletableFuture.completedFuture(null);
         }
         return this.scheduler.supplyOnMain(() -> {
+            // 业务卸载契约（UnloadOptions#discardWhenEmpty）：世界仍有玩家时拒绝，
+            // 实例保持注册；关服清理（requireEmpty=false）不因玩家在场而放弃。
+            if (options != null && options.requireEmpty() && !worldEmpty(entry)) {
+                throw new WorldProviderException(
+                        WorldProviderError.WORLD_NOT_EMPTY, "instance world still has players: " + instanceId);
+            }
             unloadSync(instanceId);
             return null;
         });
     }
 
+    /** 实例世界是否无玩家（Bukkit 世界/玩家 API 须在主线程调用；世界未注册时视为空）。 */
+    private static boolean worldEmpty(final Entry entry) {
+        final World world = Bukkit.getWorld(entry.instance().worldName());
+        return world == null || world.getPlayers().isEmpty();
+    }
+
     private void unloadSync(final String instanceId) {
-        final Entry entry = this.registry.remove(instanceId);
+        final Entry entry = this.registry.get(instanceId);
         if (entry == null) {
             return;
         }
@@ -267,11 +284,26 @@ class BukkitMemoryWorldService implements InstanceWorldService {
         final String worldName = entry.instance().worldName();
         final World world = Bukkit.getWorld(worldName);
         if (world != null) {
+            final boolean unloaded;
             try {
-                Bukkit.unloadWorld(world, false);
-            } catch (final Exception ignored) {
+                unloaded = Bukkit.unloadWorld(world, false);
+            } catch (final Exception e) {
+                // 契约：卸载失败时实例保留、不得假装已释放（WorldProviderError#WORLD_UNLOAD_FAILED）。
+                entry.instance().activate(world);
+                throw new WorldProviderException(
+                        WorldProviderError.WORLD_UNLOAD_FAILED,
+                        "Bukkit.unloadWorld threw for " + worldName + ": " + e.getMessage(),
+                        e);
+            }
+            if (!unloaded) {
+                // 世界仍在（如仍有玩家），状态回退为 ACTIVE，实例保留在注册表供重试。
+                entry.instance().activate(world);
+                throw new WorldProviderException(
+                        WorldProviderError.WORLD_UNLOAD_FAILED, "Bukkit.unloadWorld returned false: " + worldName);
             }
         }
+        // 后端确认卸载成功后才注销并清理磁盘
+        this.registry.remove(instanceId);
         // 删除世界容器中的链接/目录
         final Path link = worldContainerPath().resolve(worldName);
         try {
@@ -287,8 +319,8 @@ class BukkitMemoryWorldService implements InstanceWorldService {
         deleteRecursively(tmpDir);
         // 防御：若 Multiverse 已将该世界写入 worlds.yml，尝试清理（可选，不强依赖 MV API）
         try {
-            // 通过反射避免编译期依赖 Multiverse
-            final Class<?> mvCoreClass = Class.forName("com.onarandombox.MultiverseCore.MultiverseCore");
+            // 通过反射避免编译期依赖 Multiverse（只探测类是否在场，结果本身不使用）
+            Class.forName("com.onarandombox.MultiverseCore.MultiverseCore");
             final Object mvCore = Bukkit.getPluginManager().getPlugin("Multiverse-Core");
             if (mvCore != null) {
                 // 仅日志提示，不主动改 worlds.yml（MV 的 deleteWorld 需要主线程且可能抛异常）

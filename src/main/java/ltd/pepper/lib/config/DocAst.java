@@ -96,7 +96,7 @@ final class DocAst {
         Node key = tuple.getKeyNode();
         Node value = tuple.getValueNode();
         List<String> block = blockCommentsOf(key);
-        String inline = null;
+        String inline;
         if (!(value instanceof MappingNode)) {
             int keyLine = key.getStartMark().getLine();
             if (value.getStartMark().getLine() == keyLine) {
