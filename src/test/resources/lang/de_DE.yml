@@ -1,1 +1,1 @@
-greeting: "Hallo, %name%!"
+greeting: "Hallo, ${name}!"

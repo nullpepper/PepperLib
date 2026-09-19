@@ -320,8 +320,14 @@ public final class LanguageBundle {
     // ── 占位符替换与安全 ───────────────────────────────────────────────────────
 
     /**
-     * 按迭代顺序逐键替换占位符；后替换的键可能匹配到先插入值中的 {@code %...%} 文本
+     * 按迭代顺序逐键替换占位符；后替换的键可能匹配到先插入值中的 {@code ${...}} 文本
      * （与两插件现状语义一致）；未知占位符保留原样。
+     *
+     * <p><b>语法</b>：{@code ${key}}，与 PepperPlaceholder 引擎同一套定界符。
+     * 本层只负责<b>调用期参数</b>（{@link #format(String, Map)} 传入的 map），
+     * 注册表占位符（{@code ${identifier_params}}）由模板字符串级的
+     * {@link PlaceholderResolver} 在解析前解决 —— 未注册的标识符会被引擎原样保留，
+     * 因此两种占位符可以共存于同一段模板。</p>
      */
     private Component applyPlaceholders(final Component template, final Map<String, TextValue> placeholders) {
         Component result = template;
@@ -341,7 +347,7 @@ public final class LanguageBundle {
                 replacement = sanitizeUserContent(parseReplacement(value.value()));
             }
             result = result.replaceText(TextReplacementConfig.builder()
-                    .matchLiteral("%" + entry.getKey() + "%")
+                    .matchLiteral("${" + entry.getKey() + "}")
                     .replacement(replacement)
                     .build());
         }

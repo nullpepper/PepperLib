@@ -14,6 +14,9 @@ aswm = "3.0.0"
 # YAML 引擎（ltd.pepper.lib.yaml/config）：pin = 服务端捆绑版本（Paper 26.2 实测 2.6），
 # 运行期由服务端提供（Bukkit YamlConfiguration 自身依赖，必在类路径），编译/测试显式声明。
 snakeyaml = "2.6"
+# PepperPlaceholder 引擎核心（本地 mavenLocal 坐标，与 pepper-lib 同套约定）：
+# compileOnly + testImplementation —— 运行时由 plugins/PepperPlaceholder.jar 提供。
+pepperPlaceholder = "0.1.0"
 # 本地构建的 ASWM fork（vjh0107，支持 MC 26.1.2）API jar；文件依赖避免 publish 依赖。
 palantirJavaFormat = "2.97.0"
 spotless = "8.9.0"
@@ -33,6 +36,7 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 aswm-api = { module = "com.infernalsuite.aswm:api", version.ref = "aswm" }
 snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
+pepper-placeholder-core = { module = "ltd.pepper:pepper-placeholder-core", version.ref = "pepperPlaceholder" }
 # fork 重命名为 com.infernalsuite.asp.api；文件依赖本地构建产物（MC 26.1.2）。
 
 [plugins]

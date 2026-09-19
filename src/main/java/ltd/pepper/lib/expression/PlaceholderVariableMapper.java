@@ -6,13 +6,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 把条件串中的 {@code <xxx>} 与 {@code %xxx%} 改写为合法变量名（非法字符 → _），
+ * 把条件串中的 {@code ${bot_xxx}} 与 {@code %xxx%} 改写为合法变量名（非法字符 → _），
  * 并记录 变量名 → 原始占位符名 的映射（运行时按原名解析占位符值）。
  *
  * <p>识别规则：
  * <ul>
- *   <li>{@code <...>} 严格识别（内容须全为字母/数字/下划线）——因为 {@code <} 兼任比较运算符，
- *       如 {@code a < b}、{@code x < 5} 不得误判为占位符；</li>
+ *   <li>{@code ${bot_...}} 严格识别（名字须全为字母/数字/下划线）——{@code ${}} 定界与
+ *       比较运算符 {@code <} 不再有歧义（迁移前 {@code <xxx>} 与小于号同形，必须靠字符白名单区分）；</li>
  *   <li>{@code %...%} 放宽识别（到下一个 % 为止，中间不含空白）——PAPI 占位符可含
  *       冒号、连字符、点等（如 {@code %server_time_HH:mm:ss%}），sanitize 后仍可编译，
  *       运行时按原名经外部解析器（如 PAPI）解析，解析失败时由调用方决定降级策略。</li>
@@ -20,11 +20,14 @@ import java.util.Set;
  */
 public final class PlaceholderVariableMapper {
 
+    /** 内置占位符的命名空间前缀：写作 {@code ${bot_<name>}}。 */
+    public static final String BUILTIN_PREFIX = "bot_";
+
     private PlaceholderVariableMapper() {}
 
     /**
      * @param expression       改写后的表达式
-     * @param builtinVariables 内置变量：变量名 → 原始占位符名（{@code <...>} 内容）
+     * @param builtinVariables 内置变量：变量名 → 原始占位符名（{@code ${bot_...}} 的 name 部分）
      * @param papiVariables    PAPI 变量：变量名 → 原始占位符名（{@code %...%} 内容）
      */
     public record Mapping(String expression, Map<String, String> builtinVariables, Map<String, String> papiVariables) {
@@ -52,15 +55,17 @@ public final class PlaceholderVariableMapper {
         while (i < len) {
             char c = raw.charAt(i);
             int end = -1;
+            int nameFrom = i + 1;
             boolean isBuiltin = false;
-            if (c == '<') {
-                end = scanBuiltin(raw, i + 1);
+            if (c == '$' && i + 1 < len && raw.charAt(i + 1) == '{') {
+                end = scanBuiltin(raw, i + 2);
+                nameFrom = i + BUILTIN_PREFIX.length() + 2;
                 isBuiltin = true;
             } else if (c == '%') {
                 end = scanPapi(raw, i + 1);
             }
-            if (end > i + 1) {
-                String name = raw.substring(i + 1, end);
+            if (end > nameFrom) {
+                String name = raw.substring(nameFrom, end);
                 String varName = register(seen, name, isBuiltin);
                 (isBuiltin ? builtin : papi).putIfAbsent(varName, name);
                 sb.append(varName);
@@ -73,13 +78,20 @@ public final class PlaceholderVariableMapper {
         return new Mapping(sb.toString(), Map.copyOf(builtin), Map.copyOf(papi));
     }
 
-    /** {@code <...>}：内容须全为合法标识符字符，返回 '>' 下标；否则 -1 */
+    /** {@code ${bot_...}}：{@code from} 指向 {@code bot_} 之后，返回 '}' 下标；否则 -1 */
     private static int scanBuiltin(String raw, int from) {
-        int j = from;
+        if (!raw.startsWith(BUILTIN_PREFIX, from)) {
+            return -1;
+        }
+        int j = from + BUILTIN_PREFIX.length();
+        int nameStart = j;
         while (j < raw.length() && isNameChar(raw.charAt(j))) {
             j++;
         }
-        return (j < raw.length() && raw.charAt(j) == '>') ? j : -1;
+        if (j == nameStart) {
+            return -1;
+        }
+        return (j < raw.length() && raw.charAt(j) == '}') ? j : -1;
     }
 
     /** {@code %...%}：到下一个 % 为止，中间至少 1 字符且不含空白，返回 '%' 下标；否则 -1 */

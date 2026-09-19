@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "ltd.pepper"
-version = "0.15.0"
+version = "0.16.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {
@@ -17,6 +17,8 @@ java {
 
 // papermc + mavenCentral 由 pepper.java-conventions 提供；根项目额外仓库：
 repositories {
+    // PepperPlaceholder 引擎核心坐标（本地发布；与 pepper-lib 同套 mavenLocal 约定）。
+    mavenLocal()
     maven {
         name = "extendedclip"
         url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/")
@@ -34,6 +36,9 @@ dependencies {
     // PAPI 仅编译期软依赖（i18n PapiPlaceholderResolver / papi PapiExpansionSupport）：
     // 不打包、不传递；运行时由插件提供。
     compileOnly(libs.placeholderapi)
+    // PepperPlaceholder 引擎：原生占位符 API（PlaceholderSupport / EnginePlaceholderResolver）。
+    // compileOnly —— 引擎类由 plugins/PepperPlaceholder.jar 在运行时提供。
+    compileOnly(libs.pepper.placeholder.core)
     // Vault 仅编译期软依赖（economy VaultSupport）：不打包、不传递；运行时由插件提供。
     compileOnly(libs.vault.api) {
         exclude(group = "org.bukkit", module = "bukkit")
@@ -53,6 +58,8 @@ dependencies {
     testImplementation(libs.mockbukkit)
     // PAPI 测试同版本（与 Union 一致）：验证 jar 在场但未注册扩展的路径。
     testImplementation(libs.placeholderapi)
+    // 引擎测试运行时：MockBukkit ServicesManager 注册真实 PlaceholderEngine 验证原生路径。
+    testImplementation(libs.pepper.placeholder.core)
     // Vault 测试同版本（与 Union 一致）：ServicesManager 注册/解析路径。
     testImplementation(libs.vault.api) {
         exclude(group = "org.bukkit", module = "bukkit")

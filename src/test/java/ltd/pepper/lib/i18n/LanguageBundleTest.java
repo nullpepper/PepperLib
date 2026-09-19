@@ -112,7 +112,7 @@ class LanguageBundleTest {
     @Test
     void diskOverrideWinsAndBundledFills(@TempDir final Path folder) throws Exception {
         Files.createDirectories(folder.resolve("lang"));
-        Files.writeString(folder.resolve("lang/zh_CN.yml"), "greeting: \"改了：%name%\"\n");
+        Files.writeString(folder.resolve("lang/zh_CN.yml"), "greeting: \"改了：${name}\"\n");
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
         assertEquals("改了：Bob", plain(bundle.format("greeting", "name", "Bob")));
@@ -181,15 +181,15 @@ class LanguageBundleTest {
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
         assertEquals("进度: 50 / 50", plain(bundle.format("with.placeholder", "progress", "50")));
-        assertEquals("你好，%name%！", plain(bundle.format("greeting")));
-        assertEquals("你好，%name%！", plain(bundle.format("greeting", Map.of())));
+        assertEquals("你好，${name}！", plain(bundle.format("greeting")));
+        assertEquals("你好，${name}！", plain(bundle.format("greeting", Map.of())));
     }
 
     @Test
     void unknownPlaceholderPreserved(@TempDir final Path folder) {
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
-        assertEquals("你好，%name%！", plain(bundle.format("greeting", "other", "X")));
+        assertEquals("你好，${name}！", plain(bundle.format("greeting", "other", "X")));
     }
 
     @Test
@@ -229,7 +229,7 @@ class LanguageBundleTest {
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
         final Map<String, TextValue> map = new LinkedHashMap<>();
-        map.put("a", TextValue.mini("%b%"));
+        map.put("a", TextValue.mini("${b}"));
         map.put("b", TextValue.mini("X"));
         assertEquals("A: X B: X", plain(bundle.format("rescan.msg", map)));
     }
@@ -239,7 +239,7 @@ class LanguageBundleTest {
     @Test
     void formatForPlayerAppliesResolverBeforeParse(@TempDir final Path folder) {
         final LanguageBundle bundle = zhEn(folder);
-        bundle.setPlaceholderResolver((player, text) -> text.replace("%papi_x%", "<red>P</red>"));
+        bundle.setPlaceholderResolver((player, text) -> text.replace("${papi_x}", "<red>P</red>"));
         bundle.reload();
         final Component result = bundle.formatForPlayer(player(Locale.ENGLISH), "papi.msg", kv("name", "Bob"));
         assertEquals("Hi P Bob!", plain(result));
@@ -262,17 +262,17 @@ class LanguageBundleTest {
     void formatRawSubstitutesInResolvedTemplate(@TempDir final Path folder) {
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
-        assertEquals("Hi Bob!", plain(bundle.formatRaw("Hi %name%!", Map.of("name", TextValue.mini("Bob")))));
+        assertEquals("Hi Bob!", plain(bundle.formatRaw("Hi ${name}!", Map.of("name", TextValue.mini("Bob")))));
     }
 
     @Test
     void rawChainAndRawForPlayer(@TempDir final Path folder) {
         final LanguageBundle bundle = zhEnDe(folder);
         bundle.setLocaleResolver((player, def) -> player == null ? def : Locale.GERMANY);
-        bundle.setPlaceholderResolver((player, text) -> text.replace("%papi_x%", "OK"));
+        bundle.setPlaceholderResolver((player, text) -> text.replace("${papi_x}", "OK"));
         bundle.reload();
         assertEquals("English only", bundle.rawForPlayer(player(Locale.GERMANY), "only.en"));
-        assertEquals("Hi OK %name%!", bundle.rawForPlayer(player(Locale.GERMANY), "papi.msg"));
+        assertEquals("Hi OK ${name}!", bundle.rawForPlayer(player(Locale.GERMANY), "papi.msg"));
         assertEquals("missing.key", bundle.rawForPlayer(player(Locale.GERMANY), "missing.key"));
     }
 
@@ -280,8 +280,8 @@ class LanguageBundleTest {
     void rawForLocaleResolvesChainForGivenLocale(@TempDir final Path folder) {
         final LanguageBundle bundle = zhEnDe(folder);
         bundle.reload();
-        assertEquals("你好，%name%！", bundle.rawForLocale(Locale.SIMPLIFIED_CHINESE, "greeting"));
-        assertEquals("Hello, %name%!", bundle.rawForLocale(Locale.ENGLISH, "greeting"));
+        assertEquals("你好，${name}！", bundle.rawForLocale(Locale.SIMPLIFIED_CHINESE, "greeting"));
+        assertEquals("Hello, ${name}!", bundle.rawForLocale(Locale.ENGLISH, "greeting"));
         // de 缺失 → 默认 zh 缺失 → 回退 en。
         assertEquals("English only", bundle.rawForLocale(Locale.GERMANY, "only.en"));
         // 全部缺失 → 键名。
@@ -296,7 +296,7 @@ class LanguageBundleTest {
         bundle.reload();
         assertEquals("你好，Bob！", plain(bundle.format("greeting", "name", "Bob")));
         Files.createDirectories(folder.resolve("lang"));
-        Files.writeString(folder.resolve("lang/zh_CN.yml"), "greeting: \"更新后：%name%\"\n");
+        Files.writeString(folder.resolve("lang/zh_CN.yml"), "greeting: \"更新后：${name}\"\n");
         bundle.reload();
         assertEquals("更新后：Bob", plain(bundle.format("greeting", "name", "Bob")));
     }
@@ -306,7 +306,7 @@ class LanguageBundleTest {
         final LanguageBundle bundle = zhEn(folder);
         bundle.reload();
         final Map<String, String> zh = bundle.rawMessages("zh_CN");
-        assertEquals("你好，%name%！", zh.get("greeting"));
+        assertEquals("你好，${name}！", zh.get("greeting"));
         assertThrows(UnsupportedOperationException.class, () -> zh.put("x", "y"));
         assertTrue(bundle.rawMessages("de_DE").isEmpty());
     }
