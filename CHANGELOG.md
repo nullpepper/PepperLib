@@ -6,6 +6,25 @@ All notable changes to PepperLib are documented here. Format follows
 
 ## [0.16.0] - 未发布
 
+### 新增
+
+- `ltd.pepper.lib.world.SafeLandingSearch`：**安全落点搜索**（移植自 Residence 6.0.3.3
+  `LocationUtil`，语义逐条对齐）。
+  - `findOutside(Region, BlockReader, TargetFilter, Options, Random)`：在区域**四条边外侧**
+    找可站立位置。取点顺序照搬官方 `getRandomEdge`（按 `iteration % 4` 轮转四条边 + 边上随机 +
+    外扩 1 格）；落点判定照搬 `isValidLocation`（该格与上方一格**无碰撞箱**、下方一格非空且非岩浆）；
+    纵向从区域顶部向下扫，先撞实体方块则本次失败。默认 15 次尝试（官方 `maxIt = 15`）。
+  - `safeColumnAt(Location, BlockReader, minY, maxY)`：同一 XZ 上**就近**纵向找落点，
+    先向下再向上（官方 `ResidencePlayerListener#getSafeLocation`），用于强制收伞后的救援落地。
+  - `BlockReader` 把方块查询抽象出来（`passable` = 无碰撞箱、`isEmpty` = 就是空气、
+    `typeAt`），使搜索逻辑可在**无服务端**环境下测试；生产用 `BlockReader.of(World)`。
+  - `TargetFilter` 供调用方注入落点准入（领地插件在此检查目标位置的 `tp`/`move` 权限）。
+  - **两处有意差异**（已写在类注释里）：① 本实现是**同步**的，官方走区块快照 + 异步调度；
+    调用方须自行保证不在每 tick 路径上调用。② **不做出生点回退**——那是策略不是搜索，
+    由调用方在收到空结果后决定（官方 `fallBackLocation` 回退到配置的 KickLocation 或世界出生点）。
+  - 另：`safeColumnAt` 的纵向边界改用调用方传入的 `minY`/`maxY`（官方硬编码下界 0、
+    上界 `getMaxHeight()`），使 y<0 的地层也能被搜到；常见地形下结果不变。
+
 ### 移除（死代码清理：全部经字节码引用扫描 + 源码 grep 双证零引用）
 
 - `ConfigFileStore.loader` 私有字段：只在构造器写入、全仓库无任何读取
