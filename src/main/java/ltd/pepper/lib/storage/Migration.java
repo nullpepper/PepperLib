@@ -39,4 +39,15 @@ public interface Migration {
     default Map<String, List<String>> requiredColumns() {
         return Map.of();
     }
+
+    /**
+     * 迁移内容指纹（checksum）：首次应用后记录入库，之后每次启动校验，
+     * 防止「已应用迁移的内容被改动」被静默放过（PepperUnion #18）。
+     *
+     * <p>实现方应覆写为迁移 SQL / 结构内容的哈希；默认取身份标识
+     * （类名|版本|名），能捕获版本复用与改名，但不捕获 SQL 内容变化。</p>
+     */
+    default String checksum() {
+        return getClass().getName() + "|" + version() + "|" + name();
+    }
 }

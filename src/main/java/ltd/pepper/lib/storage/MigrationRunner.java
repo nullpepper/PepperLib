@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -78,10 +79,11 @@ public final class MigrationRunner {
     public void run(final Connection connection, final SqlDialect dialect) {
         try {
             this.ensureTable(connection);
-            final Set<Integer> applied = this.appliedVersions(connection);
-            this.verifyNoRemovedMigrations(applied);
+            final Map<Integer, String> appliedRows = this.appliedRows(connection);
+            this.verifyNoRemovedMigrations(appliedRows.keySet());
+            this.verifyChecksums(appliedRows);
             for (final Migration migration : this.migrations) {
-                if (applied.contains(migration.version())) {
+                if (appliedRows.containsKey(migration.version())) {
                     continue;
                 }
                 if (dialect.isSqlite()) {
@@ -112,6 +114,26 @@ public final class MigrationRunner {
         if (!unknown.isEmpty()) {
             throw new StorageException("Database contains unknown migration versions " + unknown
                     + " — migrations were removed or the plugin was downgraded; refusing to start");
+        }
+    }
+
+    /**
+     * checksum 漂移防护（PepperUnion #18）：已应用迁移的记录指纹必须与当前实现一致；
+     * 不一致说明已应用的迁移内容被改动（或版本被复用），拒绝启动。
+     * 旧库 NULL / 空 checksum 的行豁免（grandfather）。
+     */
+    private void verifyChecksums(final Map<Integer, String> appliedRows) {
+        for (final Migration migration : this.migrations) {
+            final String recorded = appliedRows.get(migration.version());
+            if (recorded == null || recorded.isEmpty()) {
+                continue;
+            }
+            final String current = migration.checksum();
+            if (!recorded.equals(current)) {
+                throw new StorageException("Migration " + migration.version() + " (" + migration.name()
+                        + ") checksum mismatch: recorded [" + recorded + "] but current [" + current
+                        + "] — applied migration content changed; refusing to start");
+            }
         }
     }
 
@@ -210,19 +232,27 @@ public final class MigrationRunner {
             statement.execute("CREATE TABLE IF NOT EXISTS " + this.versionTableName + " ("
                     + "version INT PRIMARY KEY, "
                     + "name VARCHAR(255) NOT NULL, "
-                    + "applied_at BIGINT NOT NULL)");
+                    + "applied_at BIGINT NOT NULL, "
+                    + "checksum VARCHAR(255))");
+        }
+        // 旧库升级：版本表建于 checksum 支持之前 → 补列；旧行 checksum 为 NULL，校验豁免。
+        if (!this.columnNames(connection, this.versionTableName).contains("checksum")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE " + this.versionTableName + " ADD COLUMN checksum VARCHAR(255)");
+            }
         }
     }
 
-    private Set<Integer> appliedVersions(final Connection connection) throws SQLException {
-        final Set<Integer> versions = new HashSet<>();
+    /** 已应用版本 → 记录的 checksum（旧库行为 NULL）。 */
+    private Map<Integer, String> appliedRows(final Connection connection) throws SQLException {
+        final Map<Integer, String> rows = new HashMap<>();
         try (Statement statement = connection.createStatement();
-                ResultSet rs = statement.executeQuery("SELECT version FROM " + this.versionTableName)) {
+                ResultSet rs = statement.executeQuery("SELECT version, checksum FROM " + this.versionTableName)) {
             while (rs.next()) {
-                versions.add(rs.getInt("version"));
+                rows.put(rs.getInt("version"), rs.getString("checksum"));
             }
         }
-        return versions;
+        return rows;
     }
 
     private void recordApplied(final Connection connection, final SqlDialect dialect, final Migration migration)
@@ -230,13 +260,15 @@ public final class MigrationRunner {
         // 多实例同时初始化同一 MySQL/MariaDB 库时，版本记录可能并发插入；
         // 使用方言幂等写入而不是裸 INSERT，避免主键冲突导致启动失败。
         final String sql = dialect.isSqlite()
-                ? "INSERT OR IGNORE INTO " + this.versionTableName + " (version, name, applied_at) VALUES (?, ?, ?)"
+                ? "INSERT OR IGNORE INTO " + this.versionTableName
+                        + " (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)"
                 : "INSERT INTO " + this.versionTableName
-                        + " (version, name, applied_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = name";
+                        + " (version, name, applied_at, checksum) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = name";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, migration.version());
             ps.setString(2, migration.name());
             ps.setLong(3, System.currentTimeMillis());
+            ps.setString(4, migration.checksum());
             ps.executeUpdate();
         }
     }

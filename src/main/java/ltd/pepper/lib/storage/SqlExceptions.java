@@ -19,16 +19,23 @@ public final class SqlExceptions {
     private SqlExceptions() {}
 
     /**
-     * 是否为唯一键/主键冲突（SQLState 23xxx，或消息含
-     * {@code UNIQUE constraint failed} / {@code Duplicate entry}）。
+     * 是否为唯一键/主键冲突：优先看 SQLState 23xxx 与 MySQL/MariaDB 错误码
+     * {@code 1062}（ER_DUP_ENTRY，SQLState 可能缺失），消息兜底大小写不敏感，
+     * 覆盖 SQLite {@code UNIQUE constraint failed}、MySQL {@code Duplicate entry}、
+     * MariaDB {@code Duplicate key} 三种形态（PepperUnion #21）。
      */
     public static boolean isUniqueViolation(SQLException e) {
         String state = e.getSQLState();
         if (state != null && state.startsWith("23")) {
             return true;
         }
-        String msg = String.valueOf(e.getMessage());
-        return msg.contains("UNIQUE constraint failed") || msg.contains("Duplicate entry");
+        if (e.getErrorCode() == 1062) {
+            return true;
+        }
+        String msg = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
+        return msg.contains("unique constraint")
+                || msg.contains("duplicate entry")
+                || msg.contains("duplicate key");
     }
 
     /**
