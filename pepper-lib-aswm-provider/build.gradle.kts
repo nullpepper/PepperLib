@@ -6,7 +6,7 @@ plugins {
 group = "ltd.pepper"
 version = project(":").version
 
-description = "PepperLib 可选 provider：纯内存实例世界服务实现（ltd.pepper.lib.world），插件 tmp + 符号链接隔离。"
+description = "PepperLib 可选 provider：纯内存实例世界服务实现（ltd.pepper.lib.world），插件 tmp/worlds 下真实复制模板世界。"
 
 dependencies {
     // 核心库仅编译期：运行时由 PepperLib 前置插件提供（类必须同 ClassLoader 才能经

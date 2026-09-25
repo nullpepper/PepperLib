@@ -5,7 +5,7 @@ api-version: '1.18'
 prefix: PepperLib-ASWM
 depend:
   - PepperLib
-description: PepperLib 可选 provider：经 Advanced Slime Paper API 提供实例世界服务（ltd.pepper.lib.world.InstanceWorldService）。
+description: PepperLib 可选 provider：纯内存实例世界服务实现（ltd.pepper.lib.world.InstanceWorldService），插件 tmp/worlds 下真实复制模板世界，无外部环境依赖（插件名中的 ASWM 为历史坐标）。
 authors:
   - Pepper
 folia-supported: false

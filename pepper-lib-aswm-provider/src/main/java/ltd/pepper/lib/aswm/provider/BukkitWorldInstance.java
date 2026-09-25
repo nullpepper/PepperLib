@@ -7,8 +7,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 
 /**
- * Bukkit 内存语义的 {@link WorldInstance} 实现：与 {@link AswmWorldInstance}
- * 逻辑一致，仅承载类名区分，便于 provider 侧区分统计。
+ * Bukkit 内存语义的 {@link WorldInstance} 实现：实例世界的状态容器，
+ * 由 {@link BukkitMemoryWorldService} 创建并持有。
  */
 final class BukkitWorldInstance implements WorldInstance {
 

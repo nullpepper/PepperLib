@@ -32,15 +32,15 @@ import org.bukkit.WorldCreator;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * 纯内存语义的 Bukkit 后备实现：实例世界文件夹置于插件 {@code tmp/worlds/}，
- * 通过符号链接暴露到服务端世界容器，实现：
+ * 纯内存语义的 Bukkit 实现：实例世界文件夹置于插件 {@code tmp/worlds/}，
+ * 创建时把模板目录真实复制到服务端维度容器后再 {@code createWorld}，实现：
  * <ul>
  *   <li>Multiverse 零感知（世界不在 {@code worlds.yml}，/mv list 不出现）</li>
  *   <li>模板只读（每实例从模板目录递归复制）</li>
- *   <li>卸载即删（unload + 删除插件 tmp 下的实例目录 + 链接）</li>
+ *   <li>卸载即删（unload + 删除插件 tmp 下的实例目录 + 容器内世界目录）</li>
  * </ul>
- * <p>Fallback 链：ASP 可用时由 {@link AswmInstanceWorldService} 提供服务；
- * ASP 不可用时由本实现兜底，保证 Purpur 等非 ASP 核心上仍可开赛。</p>
+ * <p>本实现是 provider 的唯一实现；ASP/slime 支持已移除（提交 e02c508），
+ * 不存在 ASP 后备链，也不依赖任何外部运行环境。</p>
  */
 class BukkitMemoryWorldService implements InstanceWorldService {
 
@@ -97,7 +97,7 @@ class BukkitMemoryWorldService implements InstanceWorldService {
         return new WorldProviderInfo(
                 "pepper-lib-bukkit-memory",
                 this.plugin.getDescription().getVersion(),
-                "Paper/Purpur 纯 Bukkit 内存语义（插件 tmp/worlds + 符号链接隔离 Multiverse）",
+                "Paper/Purpur 纯 Bukkit 内存语义（插件 tmp/worlds 真实复制模板到维度容器）",
                 "bukkit:memory-tmp");
     }
 

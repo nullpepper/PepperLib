@@ -8,7 +8,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * PepperLib world-instance 前置 provider：纯内存实现
- * （{@link BukkitMemoryWorldService}，插件 tmp + 符号链接隔离）。
+ * （{@link BukkitMemoryWorldService}，插件 tmp/worlds + 真实复制模板世界）。
  *
  * <p>ASP/slime 支持已移除（服务器环境从未可用，构建依赖维护成本 > 收益）。</p>
  */
