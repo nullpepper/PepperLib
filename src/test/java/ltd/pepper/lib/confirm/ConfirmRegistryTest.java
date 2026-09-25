@@ -145,15 +145,16 @@ class ConfirmRegistryTest {
 
     @Test
     void expiryIsEvaluatedAgainstConfirmEntryExpiresAt() {
-        final ConfirmEntry<String> past = new ConfirmEntry<>("old", System.currentTimeMillis() - 1);
-        final ConfirmEntry<String> future = new ConfirmEntry<>("new", System.currentTimeMillis() + 10_000);
+        final long now = System.currentTimeMillis();
+        final ConfirmEntry<String> past = new ConfirmEntry<>("old", now - 10_000, now - 1);
+        final ConfirmEntry<String> future = new ConfirmEntry<>("new", now, now + 10_000);
         assertTrue(past.isExpired());
         assertFalse(future.isExpired());
     }
 
     @Test
     void confirmEntryRejectsNullAction() {
-        assertThrows(NullPointerException.class, () -> new ConfirmEntry<>(null, 0));
+        assertThrows(NullPointerException.class, () -> new ConfirmEntry<>(null, 0, 0));
     }
 
     @Test

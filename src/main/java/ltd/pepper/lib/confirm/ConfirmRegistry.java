@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import ltd.pepper.lib.validation.Preconditions;
 
 /**
@@ -28,19 +29,43 @@ public final class ConfirmRegistry<T> {
      * <p>登记前惰性清扫全部过期条目（{@link #clearExpired()}）：长在线玩家
      * 的过期确认不会滞留内存；复杂度 O(在线玩家数)，登记路径可接受。</p>
      *
+     * <p>覆盖提示（PepperUnion #19）：被覆盖的旧条目若**未过期**，随返回值交还调用方，
+     * 由调用方决定是否提示玩家「上一条待确认操作已被覆盖」；已过期条目不算覆盖，
+     * 返回 {@code empty}。</p>
+     *
      * @param playerUuid 玩家 UUID
      * @param action 待确认操作
      * @param ttlMillis 有效时长（毫秒），必须为正
+     * @return 被本次登记覆盖的未过期旧条目；无覆盖返回 {@code empty}
      * @throws IllegalArgumentException ttl 非正
      */
-    public void register(final UUID playerUuid, final T action, final long ttlMillis) {
+    public Optional<ConfirmEntry<T>> register(final UUID playerUuid, final T action, final long ttlMillis) {
         Preconditions.requireNonNull(playerUuid, "playerUuid");
         Preconditions.requireNonNull(action, "action");
         if (ttlMillis <= 0) {
             throw new IllegalArgumentException("ttlMillis must be > 0, got " + ttlMillis);
         }
         this.clearExpired();
-        this.pending.put(playerUuid, new ConfirmEntry<>(action, System.currentTimeMillis() + ttlMillis));
+        return this.put(playerUuid, action, ttlMillis);
+    }
+
+    /** 登记并返回被覆盖的未过期旧条目（{@link #register} 的内部共用实现）。 */
+    private Optional<ConfirmEntry<T>> put(final UUID playerUuid, final T action, final long ttlMillis) {
+        final long now = System.currentTimeMillis();
+        return Optional.ofNullable(this.pending.put(playerUuid, new ConfirmEntry<>(action, now, now + ttlMillis)))
+                .filter(displaced -> !displaced.isExpired());
+    }
+
+    /**
+     * 非消费查看该玩家的待确认操作（同 tick 双提交防护用：先看条目年龄再决定是否 consume）。
+     *
+     * @param playerUuid 玩家 UUID
+     * @return 未过期条目；缺失或已过期返回 {@code empty}（不移除）
+     */
+    public Optional<ConfirmEntry<T>> peek(final UUID playerUuid) {
+        Preconditions.requireNonNull(playerUuid, "playerUuid");
+        final ConfirmEntry<T> entry = this.pending.get(playerUuid);
+        return entry == null || entry.isExpired() ? Optional.empty() : Optional.of(entry);
     }
 
     /**
@@ -59,9 +84,26 @@ public final class ConfirmRegistry<T> {
      */
     public boolean registerOrRun(
             final UUID playerUuid, final T action, final long ttlMillis, final Runnable immediateRun) {
+        return this.registerOrRun(playerUuid, action, ttlMillis, immediateRun, displaced -> {});
+    }
+
+    /**
+     * {@link #registerOrRun(UUID, Object, long, Runnable)} 的覆盖提示版：
+     * 覆盖到未过期旧条目时以该条目回调 {@code onOverwrite}（供调用方提示玩家）。
+     *
+     * @param onOverwrite 覆盖未过期旧条目时的回调（非空；无覆盖不触发）
+     * @return {@code true} 表示已立即执行（未登记）；{@code false} 表示已登记待确认
+     */
+    public boolean registerOrRun(
+            final UUID playerUuid,
+            final T action,
+            final long ttlMillis,
+            final Runnable immediateRun,
+            final Consumer<ConfirmEntry<T>> onOverwrite) {
         Preconditions.requireNonNull(playerUuid, "playerUuid");
         Preconditions.requireNonNull(action, "action");
         Preconditions.requireNonNull(immediateRun, "immediateRun");
+        Preconditions.requireNonNull(onOverwrite, "onOverwrite");
         if (ttlMillis <= 0) {
             // 免确认直接执行，但先清掉该玩家可能残留的旧待确认操作，
             // 避免确认命令之后执行到一条已被本操作取代的过期动作。
@@ -70,7 +112,7 @@ public final class ConfirmRegistry<T> {
             return true;
         }
         this.clearExpired();
-        this.pending.put(playerUuid, new ConfirmEntry<>(action, System.currentTimeMillis() + ttlMillis));
+        this.put(playerUuid, action, ttlMillis).ifPresent(onOverwrite);
         return false;
     }
 
