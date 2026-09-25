@@ -8,7 +8,6 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -201,30 +200,19 @@ public final class MigrationRunner {
         }
     }
 
-    /** 校验所有迁移声明的必需列；旧表缺列时明确拒绝启动。 */
+    /** 校验所有迁移声明的必需列；旧表缺列时明确拒绝启动（同样走直接探测，见 {@link #hasColumn}）。 */
     private void verifyRequiredColumns(final Connection connection) throws SQLException {
         for (final Migration migration : this.migrations) {
             for (final Map.Entry<String, List<String>> table :
                     migration.requiredColumns().entrySet()) {
-                final Set<String> actual = this.columnNames(connection, table.getKey());
                 for (final String required : table.getValue()) {
-                    if (!actual.contains(required.toLowerCase(Locale.ROOT))) {
+                    if (!this.hasColumn(connection, table.getKey(), required)) {
                         throw new SQLException("Migration " + migration.version() + " (" + migration.name()
                                 + "): table " + table.getKey() + " is missing required column " + required);
                     }
                 }
             }
         }
-    }
-
-    private Set<String> columnNames(final Connection connection, final String table) throws SQLException {
-        final Set<String> names = new HashSet<>();
-        try (ResultSet rs = connection.getMetaData().getColumns(null, null, table, null)) {
-            while (rs.next()) {
-                names.add(rs.getString("COLUMN_NAME").toLowerCase(Locale.ROOT));
-            }
-        }
-        return names;
     }
 
     private void ensureTable(final Connection connection) throws SQLException {
@@ -235,11 +223,26 @@ public final class MigrationRunner {
                     + "applied_at BIGINT NOT NULL, "
                     + "checksum VARCHAR(255))");
         }
-        // 旧库升级：版本表建于 checksum 支持之前 → 补列；旧行 checksum 为 NULL，校验豁免。
-        if (!this.columnNames(connection, this.versionTableName).contains("checksum")) {
+        // 旧库升级：直接探测目标表，不信任 DatabaseMetaData——
+        // MariaDB 下 getColumns(null, null, table, null) 会跨库匹配同名表，造成
+        // 「列已存在」假阳性并跳过补列，随后 SELECT checksum 报未知列（生产回归 2026-09-25）。
+        if (!this.hasColumn(connection, this.versionTableName, "checksum")) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE " + this.versionTableName + " ADD COLUMN checksum VARCHAR(255)");
             }
+        }
+    }
+
+    /**
+     * 直接探测列是否存在（{@code SELECT <column> FROM <table> WHERE 1=0}）：跨方言可用，
+     * 且不受各驱动 {@code DatabaseMetaData} 的 catalog/schema 匹配差异影响。
+     */
+    private boolean hasColumn(final Connection connection, final String table, final String column) {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeQuery("SELECT " + column + " FROM " + table + " WHERE 1=0").close();
+            return true;
+        } catch (final SQLException e) {
+            return false;
         }
     }
 
