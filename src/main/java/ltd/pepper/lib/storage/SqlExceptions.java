@@ -33,9 +33,7 @@ public final class SqlExceptions {
             return true;
         }
         String msg = String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT);
-        return msg.contains("unique constraint")
-                || msg.contains("duplicate entry")
-                || msg.contains("duplicate key");
+        return msg.contains("unique constraint") || msg.contains("duplicate entry") || msg.contains("duplicate key");
     }
 
     /**

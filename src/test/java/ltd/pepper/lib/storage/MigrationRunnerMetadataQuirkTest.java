@@ -114,9 +114,7 @@ class MigrationRunnerMetadataQuirkTest {
             default -> throw new UnsupportedOperationException(method.getName());
         };
         return (ResultSet) Proxy.newProxyInstance(
-                MigrationRunnerMetadataQuirkTest.class.getClassLoader(),
-                new Class<?>[] {ResultSet.class},
-                handler);
+                MigrationRunnerMetadataQuirkTest.class.getClassLoader(), new Class<?>[] {ResultSet.class}, handler);
     }
 
     @BeforeEach
@@ -138,7 +136,8 @@ class MigrationRunnerMetadataQuirkTest {
             statement.execute("INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, 'v1', 0)");
         }
 
-        new MigrationRunner(List.of(migration(1, "v1", "sha-any"))).run(withLyingMetadata(this.connection), this.dialect);
+        new MigrationRunner(List.of(migration(1, "v1", "sha-any")))
+                .run(withLyingMetadata(this.connection), this.dialect);
 
         try (Statement statement = this.connection.createStatement();
                 ResultSet rs = statement.executeQuery("SELECT checksum FROM schema_migrations WHERE version = 1")) {

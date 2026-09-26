@@ -112,17 +112,14 @@ class MigrationChecksumTest {
         final StorageException failure = assertThrows(
                 StorageException.class,
                 () -> new MigrationRunner(List.of(migration(1, "v1", "sha-XYZ"))).run(this.connection, this.dialect));
-        assertTrue(
-                failure.getMessage().contains("checksum"),
-                "拒绝原因应指明 checksum 不一致，实际：" + failure.getMessage());
+        assertTrue(failure.getMessage().contains("checksum"), "拒绝原因应指明 checksum 不一致，实际：" + failure.getMessage());
     }
 
     @Test
     void legacyTableWithoutChecksumColumnIsUpgradedAndTolerated() throws SQLException {
         try (Statement statement = this.connection.createStatement()) {
-            statement.execute(
-                    "CREATE TABLE schema_migrations (version INT PRIMARY KEY, name VARCHAR(255) NOT NULL,"
-                            + " applied_at BIGINT NOT NULL)");
+            statement.execute("CREATE TABLE schema_migrations (version INT PRIMARY KEY, name VARCHAR(255) NOT NULL,"
+                    + " applied_at BIGINT NOT NULL)");
             statement.execute("INSERT INTO schema_migrations (version, name, applied_at) VALUES (1, 'v1', 0)");
         }
 

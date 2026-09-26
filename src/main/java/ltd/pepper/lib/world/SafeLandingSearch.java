@@ -179,8 +179,7 @@ public final class SafeLandingSearch {
                 continue;
             }
             // 官方落点：方块中心 + 0.5、Y 抬 0.1（避免卡在方块边沿）。
-            final Location candidate =
-                    new Location(region.world(), xz[0] + 0.5, standingY + 0.1, xz[1] + 0.5);
+            final Location candidate = new Location(region.world(), xz[0] + 0.5, standingY + 0.1, xz[1] + 0.5);
             if (filter == null || filter.accepts(candidate)) {
                 return Optional.of(candidate);
             }
@@ -207,8 +206,7 @@ public final class SafeLandingSearch {
      * 从区域顶部向下找**最上面**的可站立 Y；若先撞到实体方块（地表高于区域顶部）则返回
      * {@code null}（官方该次尝试判失败）。
      */
-    private static Integer highestStandingY(
-            final Region region, final BlockReader reader, final int x, final int z) {
+    private static Integer highestStandingY(final Region region, final BlockReader reader, final int x, final int z) {
         for (int y = region.maxY(); y > region.minY(); y--) {
             if (isSafeStandingAt(reader, x, y, z)) {
                 return y;
@@ -260,8 +258,7 @@ public final class SafeLandingSearch {
     }
 
     /** 该格非空气 + 上方两格都是空气（官方 {@code getSafeLocation} 的判据）。 */
-    private static boolean isStandableColumn(
-            final BlockReader reader, final int x, final int y, final int z) {
+    private static boolean isStandableColumn(final BlockReader reader, final int x, final int y, final int z) {
         return !reader.isEmpty(x, y, z) && reader.isEmpty(x, y + 1, z) && reader.isEmpty(x, y + 2, z);
     }
 
@@ -274,8 +271,7 @@ public final class SafeLandingSearch {
     /**
      * 官方 {@code isValidLocation}：该格无碰撞箱 + 上方一格无碰撞箱 + 下方一格非空且非岩浆。
      */
-    public static boolean isSafeStandingAt(
-            final BlockReader reader, final int x, final int y, final int z) {
+    public static boolean isSafeStandingAt(final BlockReader reader, final int x, final int y, final int z) {
         if (!reader.passable(x, y, z) || !reader.passable(x, y + 1, z)) {
             return false;
         }

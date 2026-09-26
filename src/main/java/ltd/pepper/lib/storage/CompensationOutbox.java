@@ -33,9 +33,8 @@ public final class CompensationOutbox {
 
     /** 建表（幂等）。 */
     public void ensureTable(final Connection connection, final SqlDialect dialect) throws SQLException {
-        final String idColumn = dialect.isSqlite()
-                ? "id INTEGER PRIMARY KEY AUTOINCREMENT"
-                : "id BIGINT PRIMARY KEY AUTO_INCREMENT";
+        final String idColumn =
+                dialect.isSqlite() ? "id INTEGER PRIMARY KEY AUTOINCREMENT" : "id BIGINT PRIMARY KEY AUTO_INCREMENT";
         try (Statement statement = connection.createStatement()) {
             statement.execute("CREATE TABLE IF NOT EXISTS " + this.tableName + " ("
                     + idColumn + ", "
@@ -106,9 +105,8 @@ public final class CompensationOutbox {
      */
     public int resetStaleProcessing(final Connection connection, final long olderThanMillis) throws SQLException {
         final long cutoff = System.currentTimeMillis() - Math.max(0, olderThanMillis);
-        try (PreparedStatement ps = connection.prepareStatement(
-                "UPDATE " + this.tableName + " SET status = 'PENDING', updated_at = ?"
-                        + " WHERE status = 'PROCESSING' AND updated_at <= ?")) {
+        try (PreparedStatement ps = connection.prepareStatement("UPDATE " + this.tableName
+                + " SET status = 'PENDING', updated_at = ?" + " WHERE status = 'PROCESSING' AND updated_at <= ?")) {
             ps.setLong(1, System.currentTimeMillis());
             ps.setLong(2, cutoff);
             return ps.executeUpdate();

@@ -45,8 +45,7 @@ class ConfirmRegistryExtensionTest {
         registry.register(player, "old", 10_000);
         final AtomicReference<ConfirmEntry<String>> seen = new AtomicReference<>();
 
-        final boolean immediate =
-                registry.registerOrRun(player, "new", 10_000, () -> {}, seen::set);
+        final boolean immediate = registry.registerOrRun(player, "new", 10_000, () -> {}, seen::set);
 
         assertFalse(immediate);
         assertEquals("old", seen.get().action(), "覆盖回调应收到被覆盖的旧条目");

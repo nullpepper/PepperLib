@@ -239,7 +239,9 @@ public final class MigrationRunner {
      */
     private boolean hasColumn(final Connection connection, final String table, final String column) {
         try (Statement statement = connection.createStatement()) {
-            statement.executeQuery("SELECT " + column + " FROM " + table + " WHERE 1=0").close();
+            statement
+                    .executeQuery("SELECT " + column + " FROM " + table + " WHERE 1=0")
+                    .close();
             return true;
         } catch (final SQLException e) {
             return false;

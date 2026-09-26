@@ -195,11 +195,7 @@ class SafeLandingSearchTest {
 
         assertTrue(
                 SafeLandingSearch.findOutside(
-                                region(),
-                                voidReader,
-                                null,
-                                SafeLandingSearch.Options.defaults(),
-                                new Random(7L))
+                                region(), voidReader, null, SafeLandingSearch.Options.defaults(), new Random(7L))
                         .isEmpty(),
                 "全空列没有落点");
     }
@@ -215,8 +211,7 @@ class SafeLandingSearchTest {
     @Test
     void regionRejectsUnorderedBounds() {
         assertThrows(
-                IllegalArgumentException.class,
-                () -> new SafeLandingSearch.Region(this.world, 10, 0, 0, 5, 200, 15));
+                IllegalArgumentException.class, () -> new SafeLandingSearch.Region(this.world, 10, 0, 0, 5, 200, 15));
         assertThrows(IllegalArgumentException.class, () -> new SafeLandingSearch.Region(null, 0, 0, 0, 5, 200, 15));
     }
 
@@ -230,7 +225,8 @@ class SafeLandingSearchTest {
         final SafeLandingSearch.BlockReader reader = flat(64, Material.STONE);
         final Location origin = new Location(this.world, 3.5, 100.0, 7.5);
 
-        final Location loc = SafeLandingSearch.safeColumnAt(origin, reader, -64, 320).orElseThrow();
+        final Location loc =
+                SafeLandingSearch.safeColumnAt(origin, reader, -64, 320).orElseThrow();
 
         assertEquals(65.0, loc.getY(), 1e-6, "地表 64 上方一格");
         assertEquals(3.5, loc.getX(), 1e-6, "X 保持不变");
@@ -245,7 +241,9 @@ class SafeLandingSearchTest {
 
         assertEquals(
                 65.0,
-                SafeLandingSearch.safeColumnAt(origin, reader, -64, 320).orElseThrow().getY(),
+                SafeLandingSearch.safeColumnAt(origin, reader, -64, 320)
+                        .orElseThrow()
+                        .getY(),
                 1e-6);
     }
 
@@ -257,7 +255,9 @@ class SafeLandingSearchTest {
 
         assertEquals(
                 65.0,
-                SafeLandingSearch.safeColumnAt(origin, reader, -64, 320).orElseThrow().getY(),
+                SafeLandingSearch.safeColumnAt(origin, reader, -64, 320)
+                        .orElseThrow()
+                        .getY(),
                 1e-6,
                 "被埋时应向上取该列地表，而不是把人留在方块里");
     }
