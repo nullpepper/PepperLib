@@ -98,6 +98,7 @@ worlds.unload("match-" + matchUuid, UnloadOptions.discardWhenEmpty());
 | `ltd.pepper.lib.task` | `PepperScheduler` / `BukkitPepperScheduler` / `ThreadGuard`(Instance) | 已接入（两插件） |
 | `ltd.pepper.lib.storage` | `SqlDialect` / `Migration` / `MigrationRunner` / `StorageException` | 已接入（两插件迁移框架） |
 | `ltd.pepper.lib.gui` | `PageWindow` / `Pagination` / `GuiEventGuards` / `GuiClick` / `GuiSessionId` / `GuiPage` / `GuiContext` / `GuiHost` | 已接入（两插件 GUI） |
+| `ltd.pepper.lib.dialog` | `DialogHost` / `MultiActionDialog` / `DialogButton` / `DialogClick` | **Experimental**：Paper 原生 Dialog 通用助手（多操作按钮装配 + 业务值绑定回调 + 主线程/异常契约）；**Paper-bound**，需 MC 1.21.6+，未纳入 `@MinMinecraftVersion` 能力注册（消费者自行门控） |
 | `ltd.pepper.lib.confirm` | `ConfirmEntry` / `ConfirmRegistry` / `ConfirmCleanupListener` | 已接入（两插件二次确认） |
 | `ltd.pepper.lib.i18n` | `LanguageBundle` / `TextValue` / `PlaceholderResolver` | 已接入（两插件 i18n） |
 | `ltd.pepper.lib.money` | `Amounts` | 已接入（两插件金额） |

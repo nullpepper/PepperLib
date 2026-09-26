@@ -7,7 +7,8 @@ plugins {
 }
 
 group = "ltd.pepper"
-version = "0.17.0"
+// 0.18.0：新增 ltd.pepper.lib.dialog（原生 Dialog 助手）——向后兼容的 API 增量。
+version = "0.18.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {
@@ -73,6 +74,9 @@ dependencies {
 tasks.test {
     // 产物守卫测试（ArtifactContentGuardTest）读取 pepper-lib JAR。
     dependsOn(tasks.jar)
+    // 守卫按当前版本定位产物：硬编码版本号会随发版漂移，且只有旧产物残留在 build/libs
+    // 时才“通过”（clean build 必红）。版本经系统属性注入，测试缺失即失败。
+    systemProperty("pepperLibVersion", project.version.toString())
 }
 
 // javadoc 纳入绿门（check）：doclint reference error 直接阻断构建，防止文档腐化。

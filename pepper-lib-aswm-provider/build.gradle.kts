@@ -31,4 +31,7 @@ tasks.processResources {
 tasks.test {
     // 产物守卫测试（ProviderArtifactContentGuardTest）读取薄 jar。
     dependsOn(tasks.jar)
+    // 守卫按当前版本定位产物：硬编码版本号会随发版漂移，且只有旧产物残留在 build/libs
+    // 时才“通过”（clean build 必红）。版本经系统属性注入，测试缺失即失败。
+    systemProperty("pepperLibVersion", project.version.toString())
 }

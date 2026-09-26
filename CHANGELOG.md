@@ -4,6 +4,46 @@ All notable changes to PepperLib are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本语义见
 [README API 稳定性策略](README.md)。
 
+## [0.18.0] - 未发布
+
+### 新增
+
+- `ltd.pepper.lib.dialog`：**Paper 原生 Dialog 通用助手包**（多操作按钮表单）。
+  - `DialogHost`（**实例类**，构造时拿 Plugin owner，不取全局单例）：`open(Player, MultiActionDialog)`
+    可从任意线程调用，内部经 `PepperScheduler` 回主线程渲染并展示；点击回调统一在主线程执行，
+    回调异常与调度失败（如插件已禁用）都被捕获并以 `WARNING` 记入插件日志，**绝不**上抛到服务端的
+    对话框处理路径；非 `Player` 的 audience 点击被丢弃并记日志。
+  - `MultiActionDialog`：不可变装配（标题 / 可选正文行（plain message body）/ 一组按钮 / 列数 /
+    可选退出按钮 / `pause` / `canCloseWithEscape` / `afterAction`）。默认 `columns = 2`、
+    `pause = false`、`canCloseWithEscape = true`、`afterAction = CLOSE`；`build()` 产出快照并拒绝
+    空按钮与 `columns < 1`。
+  - `DialogButton` + `DialogClick`：每个按钮自带 label、可选 tooltip 与**业务值绑定的回调闭包**
+    （如“点了哪个称号”），因此同一对话框内不同按钮可指向不同业务对象。
+  - 统一回调选项 `MultiActionDialog.DEFAULT_CALLBACK_OPTIONS` = lifetime 10 分钟、uses 1——
+    对话框首次点击后即按 `afterAction` 关闭，回调不可重复触发，避免同一按钮被重复投递造成的
+    双重执行（与 PepperUnion `DialogForms` 对资金/不可逆操作的一次性要求一致）。有效期与命令层
+    确认窗口同量级。
+  - 参考实现下沉自 PepperUnion（`PaperDialogSupport` / `DialogForms`）、PepperClaim
+    （`ClaimConfigDialog`）与 PepperAgreement（`ProtocolDialogFactory`）三处重复的打开/装配/回调样板。
+  - 版本门控：Paper Dialog API 需 MC 1.21.6+ 服务端；本包**未**纳入 `@MinMinecraftVersion` 能力
+    注册（能力注册表为 `gui-host` / `world-instance` 的精确集合），消费者自行按服务器版本决定是否
+    启用对话框入口。
+  - 测试 20 例（JUnit 5 + Mockito，无假服务器）：装配字段接线、默认值、快照不可变、回调选项取值、
+    按钮与闭包一一对应（反例）、回调异常被吞掉并记录（反例）、主线程调度、非玩家 audience 丢弃、
+    调度失败隔离、连诊断路径失败也被隔离（反例），以及 Paper 侧接线（mock
+    `DialogInstancesProvider` 校验 label/tooltip/columns/exitAction/正文与回调注册）。
+    **未验证**：真实服务端上的打开效果（paper-api 内无 Dialog provider，单测无法构造真实 `Dialog`）。
+
+### 修复（产物守卫此前是假通过，`clean build` 必红）
+
+- `ArtifactContentGuardTest` / `PluginArtifactContentGuardTest` / `ProviderArtifactContentGuardTest`
+  把产物路径硬编码为 0.8.0 / 0.9.0 时代的文件名，前两者还断言包名统一（commit db4478c）之前的
+  `io/pepper/lib/...` 条目——只有 `build/libs` 里残留旧 jar 时才通过；一旦 `clean`，
+  3 + 2 个用例必然失败（已实测）。现改为按当前版本定位产物（Gradle 经系统属性
+  `pepperLibVersion` 注入 `project.version`）、条目统一为 `ltd/pepper/lib/...`，并新增
+  「由 `src/main/java/ltd/pepper/lib/dialog` 源码目录推导必需条目」的断言，使守卫真正校验
+  本轮产物（含新增 dialog 包）。
+
 ## [0.16.0] - 未发布
 
 ### 新增
