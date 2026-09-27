@@ -43,7 +43,8 @@ class BuildInfraGuardTest {
             "build.gradle.kts",
             "pepper-lib-plugin/build.gradle.kts",
             "pepper-lib-shaded-example/build.gradle.kts",
-            "pepper-lib-aswm-provider/build.gradle.kts");
+            "pepper-lib-aswm-provider/build.gradle.kts",
+            "pepper-lib-redis/build.gradle.kts");
 
     @Test
     void checkWiresJapicmp() {

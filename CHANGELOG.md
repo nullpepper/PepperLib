@@ -8,6 +8,10 @@ All notable changes to PepperLib are documented here. Format follows
 
 ### 新增
 
+- `pepper-lib-redis`：**平台中立的纯 JDK RESP2 客户端子模块**（`ltd.pepper:pepper-lib-redis`，包名 `ltd.pepper.lib.redis`）。
+  - 支持 `PING` / `SET` / `GET` / `DEL` / `PUBLISH` / `SUBSCRIBE`（常驻线程、退避重连、`onReconnected` 回调）。
+  - 纯 JDK 实现（零 Netty/Jedis 传递依赖），多平台通用（Velocity 代理、Paper 服务端与独立服务）。
+  - 前置插件 `pepper-lib-plugin` 将其作为未 relocate 的运行时依赖打包进 `PepperLib.jar`，供 Paper 插件共用。
 - `ltd.pepper.lib.dialog`：**Paper 原生 Dialog 通用助手包**（多操作按钮表单）。
   - `DialogHost`（**实例类**，构造时拿 Plugin owner，不取全局单例）：`open(Player, MultiActionDialog)`
     可从任意线程调用，内部经 `PepperScheduler` 回主线程渲染并展示；点击回调统一在主线程执行，

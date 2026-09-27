@@ -12,6 +12,7 @@ description = "PepperLib 前置插件：服务器单一实例提供未 relocate 
 dependencies {
     // 普通库整体打入前置插件，但不 relocate（前置插件模式契约）。
     implementation(project(":"))
+    implementation(project(":pepper-lib-redis"))
     compileOnly(libs.paper.api)
 
     testImplementation(platform(libs.junit.bom))

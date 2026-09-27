@@ -45,7 +45,9 @@ class PluginArtifactContentGuardTest {
             "ltd/pepper/lib/dialog/MultiActionDialog.class",
             "ltd/pepper/lib/dialog/MultiActionDialog$Builder.class",
             "ltd/pepper/lib/dialog/MultiActionDialog$ExitButton.class",
-            "ltd/pepper/lib/dialog/PaperDialogs.class");
+            "ltd/pepper/lib/dialog/PaperDialogs.class",
+            "ltd/pepper/lib/redis/RedisClient.class",
+            "ltd/pepper/lib/redis/RedisSettings.class");
 
     private static Set<String> entries() throws IOException {
         assertTrue(Files.isRegularFile(JAR), "产物不存在：" + JAR + "（test 任务依赖 shadowJar；请先构建）");
