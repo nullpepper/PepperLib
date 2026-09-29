@@ -67,6 +67,8 @@ dependencies {
     }
     // 迁移框架测试使用内存 SQLite（DriverManager 按 jdbc url 加载驱动）。
     testImplementation(libs.sqlite.jdbc)
+    // 连接池设置的单元测试：用真实 HikariConfig 断言生效值（仅测试期，主源集仍零 Hikari 引用）。
+    testImplementation(libs.hikaricp)
     // YAML 引擎测试：显式同版本（不依赖 paper-api 传递）。
     testImplementation(libs.snakeyaml)
 }
