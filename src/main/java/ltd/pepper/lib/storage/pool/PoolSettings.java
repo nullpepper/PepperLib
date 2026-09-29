@@ -22,7 +22,9 @@ import java.util.Properties;
  * @param keepaliveMs 空闲连接保活探测周期
  * @param validationTimeoutMs 连接校验超时；必须小于 {@link #connectionTimeoutMs}
  * @param connectTimeoutMs 驱动建连超时（写入 JDBC URL）
- * @param socketTimeoutMs 驱动读写超时（写入 JDBC URL）；**0 表示无界**，本类不允许 0
+ * @param socketTimeoutMs 驱动读写超时（写入 JDBC URL）；**0 = 本类不写入该参数**（保持驱动默认，即无界读）。
+ *     读超时是每连接全局生效，可能砍掉合法的长语句，因此**默认不启用**；必须由调用方按该插件最长合法
+ *     语句显式给出上界，见 {@link #withSocketTimeout(long)}（H2）。
  */
 public record PoolSettings(
         int maximumPoolSize,
@@ -50,9 +52,27 @@ public record PoolSettings(
                 900_000L, // maxLifetime 15min：远小于 MariaDB wait_timeout(28800s)
                 120_000L, // keepaliveTime 2min：空闲连接保活，尽早暴露半开连接
                 validation,
-                10_000L, // 驱动建连超时
-                30_000L // 驱动读写超时：0 是无界，绝不允许
+                10_000L, // 驱动建连超时：有界（实测驱动默认亦为 30s，但显式写死更可控）
+                0L // socketTimeout 默认不写：读超时全局生效，可能砍掉合法长语句（H2），由调用方显式开启
                 );
+    }
+
+    /**
+     * 显式开启驱动读超时（{@code socketTimeout}）。**调用方必须给出理由**：该值必须大于本插件最长的
+     * 合法语句耗时，否则长事务/大查询会被驱动直接砍断。
+     *
+     * @param socketTimeoutMs 读超时毫秒；{@code <= 0} 表示继续不写入
+     */
+    public PoolSettings withSocketTimeout(final long socketTimeoutMs) {
+        return new PoolSettings(
+                this.maximumPoolSize,
+                this.minimumIdle,
+                this.connectionTimeoutMs,
+                this.maxLifetimeMs,
+                this.keepaliveMs,
+                this.validationTimeoutMs,
+                this.connectTimeoutMs,
+                socketTimeoutMs);
     }
 
     /** 供 Hikari 消费的属性（键名 == setter 名）。 */
@@ -82,12 +102,19 @@ public record PoolSettings(
         return properties;
     }
 
-    /** 把驱动级超时显式写进 URL（已有查询参数时追加）。 */
+    /**
+     * 把驱动级超时写进 URL（已有查询参数时追加）。
+     *
+     * <p>{@code connectTimeout} 恒定写入（建连必须有界）；{@code socketTimeout} 仅在
+     * {@link #withSocketTimeout(long)} 显式开启后才写入（H2：读超时可能砍掉合法长语句）。</p>
+     */
     public String jdbcUrlWithTimeouts(final String jdbcUrl) {
         final StringBuilder url = new StringBuilder(jdbcUrl);
         url.append(jdbcUrl.indexOf('?') >= 0 ? '&' : '?');
         url.append("connectTimeout=").append(this.connectTimeoutMs);
-        url.append("&socketTimeout=").append(this.socketTimeoutMs);
+        if (this.socketTimeoutMs > 0L) {
+            url.append("&socketTimeout=").append(this.socketTimeoutMs);
+        }
         return url.toString();
     }
 }
