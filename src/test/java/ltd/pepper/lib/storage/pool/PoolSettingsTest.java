@@ -31,10 +31,7 @@ class PoolSettingsTest {
                 "设置里 minimumIdle=" + settings.minimumIdle() + " 不满足 < maximumPoolSize=" + settings.maximumPoolSize());
 
         final HikariConfig config = effective(settings);
-        assertTrue(
-                config.getMinimumIdle() < config.getMaximumPoolSize(),
-                "生效配置里 minimumIdle=" + config.getMinimumIdle() + " 必须 < maximumPoolSize="
-                        + config.getMaximumPoolSize());
+        assertMinimumIdleEffective(config);
     }
 
     @Test
@@ -74,5 +71,13 @@ class PoolSettingsTest {
                 "validationTimeout 必须 < connectionTimeout");
         assertTrue(config.getMaxLifetime() > 0L, "maxLifetime 不得为 0（0 = 永不淘汰）");
         assertEquals(-1L, config.getInitializationFailTimeout(), "不得在构造期建连");
+    }
+
+    private static void assertMinimumIdleEffective(final HikariConfig config) {
+        config.validate();
+        final int minIdle = config.getMinimumIdle();
+        assertTrue(minIdle >= 1, "minimumIdle 从未设置（validate 后仍为 -1）：" + minIdle);
+        assertTrue(minIdle < config.getMaximumPoolSize(), "minimumIdle=" + minIdle + " 必须 < max="
+                + config.getMaximumPoolSize());
     }
 }
