@@ -40,8 +40,8 @@ public record PoolSettings(
     public static PoolSettings forPoolSize(final int poolSize, final long connectionTimeoutMs) {
         final int maximum = Math.max(1, poolSize);
         // F1/F2：必须严格小于 maximumPoolSize，否则 Hikari 的 HouseKeeper 会整块跳过补池与健康维护。
-        // maximumPoolSize == 1（SQLite 单写者）无法满足该约束：此时上限只能为 1，
-        // 该池没有主动补池能力，恢复只能依赖可用性看门狗重建（见方案 §6.1）。
+        // maximumPoolSize == 1（SQLite 单写者）无法满足该约束：此时上限只能为 1，该池没有主动补池能力，
+        // 恢复依赖驱动自身重建连接。（曾写作"依赖可用性看门狗重建"，但三个插件的看门狗已于 2026-10-01 全部删除。）
         final int minimum = maximum == 1 ? 1 : Math.max(1, Math.min(2, maximum - 1));
         // validationTimeout 必须严格小于 connectionTimeout（Hikari 的硬约束）。
         final long validation = Math.max(1L, Math.min(2_000L, connectionTimeoutMs / 2));
