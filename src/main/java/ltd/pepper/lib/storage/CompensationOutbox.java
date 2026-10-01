@@ -5,8 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -32,6 +34,7 @@ public final class CompensationOutbox {
 
     private final String tableName;
     private final int defaultMaxAttempts;
+    private final Clock clock;
 
     /**
      * @param tableName outbox 表名（仅字母数字下划线）
@@ -41,11 +44,29 @@ public final class CompensationOutbox {
     }
 
     public CompensationOutbox(final String tableName, final int defaultMaxAttempts) {
+        this(tableName, defaultMaxAttempts, Clock.systemUTC());
+    }
+
+    /**
+     * 可注入时钟的构造器。
+     *
+     * <p>为什么必须能注入：本类的核心语义是<b>时间相关的</b>——入队/认领/完成/失败都写时间戳，
+     * 而 {@code resetStaleProcessing} 完全靠"滞留多久"来判断该重置还是该冻结待人工审核。
+     * 时钟写死就意味着这些判定只能靠 {@code Thread.sleep} 间接测，而这正是防刷上限存在的理由
+     * （无限重放会导致代币凭空刷取），最不该只被间接覆盖。</p>
+     */
+    public CompensationOutbox(final String tableName, final int defaultMaxAttempts, final Clock clock) {
         if (tableName == null || !tableName.matches("[A-Za-z0-9_]+")) {
             throw new IllegalArgumentException("tableName must match [A-Za-z0-9_]+");
         }
         this.tableName = tableName;
         this.defaultMaxAttempts = Math.max(1, defaultMaxAttempts);
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /** 当前时刻（epoch millis），一律经注入的时钟取。 */
+    private long now() {
+        return this.clock.millis();
     }
 
     /** 建表（幂等）。 */
@@ -84,7 +105,7 @@ public final class CompensationOutbox {
 
     /** 入队一条补偿（PENDING）。 */
     public long enqueue(final Connection connection, final String kind, final String payload) throws SQLException {
-        final long now = System.currentTimeMillis();
+        final long now = now();
         final String sql = "INSERT INTO " + this.tableName
                 + " (kind, payload, status, attempts, max_attempts, created_at, updated_at) "
                 + "VALUES (?, ?, 'PENDING', 0, ?, ?, ?)";
@@ -135,7 +156,7 @@ public final class CompensationOutbox {
         for (final Entry entry : candidates) {
             try (PreparedStatement ps = connection.prepareStatement(update)) {
                 ps.setString(1, lockToken);
-                ps.setLong(2, System.currentTimeMillis());
+                ps.setLong(2, now());
                 ps.setLong(3, entry.id());
                 // 原子 CAS 校验：必须恰好更新 1 行，杜绝多实例并发抢占相同记录
                 if (ps.executeUpdate() == 1) {
@@ -150,7 +171,7 @@ public final class CompensationOutbox {
     public void markCompleted(final Connection connection, final long id) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("UPDATE " + this.tableName
                 + " SET status = 'COMPLETED', lock_token = NULL, updated_at = ? WHERE id = ?")) {
-            ps.setLong(1, System.currentTimeMillis());
+            ps.setLong(1, now());
             ps.setLong(2, id);
             ps.executeUpdate();
         }
@@ -162,7 +183,7 @@ public final class CompensationOutbox {
                 + " SET status = CASE WHEN attempts >= max_attempts THEN 'MANUAL_REVIEW' ELSE 'PENDING' END, "
                 + "lock_token = NULL, updated_at = ? WHERE id = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setLong(1, System.currentTimeMillis());
+            ps.setLong(1, now());
             ps.setLong(2, id);
             ps.executeUpdate();
         }
@@ -174,13 +195,13 @@ public final class CompensationOutbox {
      * <p>防刷关键：未超限重置为 PENDING，超限重置为 MANUAL_REVIEW 冻结等待人工审查，杜绝无限复制。</p>
      */
     public int resetStaleProcessing(final Connection connection, final long olderThanMillis) throws SQLException {
-        final long cutoff = System.currentTimeMillis() - Math.max(0, olderThanMillis);
+        final long cutoff = now() - Math.max(0, olderThanMillis);
         final String sql = "UPDATE " + this.tableName
                 + " SET status = CASE WHEN attempts >= max_attempts THEN 'MANUAL_REVIEW' ELSE 'PENDING' END, "
                 + "lock_token = NULL, updated_at = ? "
                 + "WHERE status = 'PROCESSING' AND updated_at <= ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setLong(1, System.currentTimeMillis());
+            ps.setLong(1, now());
             ps.setLong(2, cutoff);
             return ps.executeUpdate();
         }

@@ -5,10 +5,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Clock;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -37,6 +39,7 @@ public final class MigrationRunner {
     private final String versionTableName;
     private final String lockName;
     private final Set<Integer> grandfatherVersions;
+    private final Clock clock;
 
     /** 使用默认版本表名 {@code schema_migrations}。 */
     public MigrationRunner(final List<Migration> migrations) {
@@ -67,6 +70,21 @@ public final class MigrationRunner {
             final String versionTableName,
             final String lockName,
             final Set<Integer> grandfatherVersions) {
+        this(migrations, versionTableName, lockName, grandfatherVersions, Clock.systemUTC());
+    }
+
+    /**
+     * 全特性构造器 + 可注入时钟（{@code applied_at} 的来源）。
+     *
+     * <p>迁移只在启动跑一次，时间精度不关键；可注入的意义在于<b>测试可确定性断言</b>
+     * （例如"重跑不覆盖已记录的 applied_at"这类性质），而不是靠真实时钟碰运气。</p>
+     */
+    public MigrationRunner(
+            final List<Migration> migrations,
+            final String versionTableName,
+            final String lockName,
+            final Set<Integer> grandfatherVersions,
+            final Clock clock) {
         if (versionTableName == null || versionTableName.isBlank()) {
             throw new IllegalArgumentException("versionTableName must not be blank");
         }
@@ -87,6 +105,7 @@ public final class MigrationRunner {
         this.versionTableName = versionTableName;
         this.lockName = lockName;
         this.grandfatherVersions = grandfatherVersions == null ? Set.of() : Set.copyOf(grandfatherVersions);
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -322,7 +341,7 @@ public final class MigrationRunner {
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, migration.version());
             ps.setString(2, migration.name());
-            ps.setLong(3, System.currentTimeMillis());
+            ps.setLong(3, this.clock.millis());
             ps.setString(4, migration.checksum());
             ps.executeUpdate();
         }
