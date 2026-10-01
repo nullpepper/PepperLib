@@ -12,6 +12,7 @@ import java.sql.Statement;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -78,6 +79,28 @@ class TransactionManagerTest {
                 ResultSet rs = s.executeQuery("SELECT balance FROM test_acc WHERE id = 1")) {
             rs.next();
             assertEquals(100, rs.getInt(1), "事务失败后必须回滚先前操作");
+        }
+    }
+
+    @Test
+    @DisplayName("事务体抛运行时异常必须回滚（只捕 SQLException 会让 setAutoCommit(true) 提交半截事务）")
+    void transactionRollsBackOnRuntimeException() throws SQLException {
+        final TransactionManager tx = new TransactionManager(this.dataSource);
+        assertThrows(IllegalStateException.class, () -> {
+            tx.runInTransaction(conn -> {
+                try (Statement s = conn.createStatement()) {
+                    s.executeUpdate("UPDATE test_acc SET balance = 999 WHERE id = 1");
+                }
+                // 业务代码在中途抛运行时异常：此时事务已改了一行但尚未提交。
+                throw new IllegalStateException("业务代码中断");
+            });
+        });
+
+        try (Connection c = this.dataSource.getConnection();
+                Statement s = c.createStatement();
+                ResultSet rs = s.executeQuery("SELECT balance FROM test_acc WHERE id = 1")) {
+            rs.next();
+            assertEquals(100, rs.getInt(1), "运行时异常同样必须回滚——否则 finally 的 setAutoCommit(true) 会按 JDBC 规范提交半截事务");
         }
     }
 }

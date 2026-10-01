@@ -47,17 +47,15 @@ public final class TransactionManager {
             try (Connection conn = this.dataSource.getConnection()) {
                 final boolean origAutoCommit = conn.getAutoCommit();
                 conn.setAutoCommit(false);
+                boolean rollbackFailed = false;
                 try {
                     final T result = action.execute(conn);
                     conn.commit();
                     return result;
                 } catch (final SQLException ex) {
-                    try {
-                        conn.rollback();
-                    } catch (final SQLException rbEx) {
-                        ex.addSuppressed(rbEx);
-                    }
-                    if (isDeadlockOrBusy(ex) && attempt < MAX_DEADLOCK_RETRIES) {
+                    rollbackFailed = !rollbackQuietly(conn, ex);
+                    // 回滚失败 ⇒ 连接状态未知：不得重试（会在坏连接上重放），直接上抛。
+                    if (!rollbackFailed && isDeadlockOrBusy(ex) && attempt < MAX_DEADLOCK_RETRIES) {
                         try {
                             Thread.sleep(50L * (long) Math.pow(3, attempt - 1));
                         } catch (final InterruptedException ie) {
@@ -67,10 +65,20 @@ public final class TransactionManager {
                         continue;
                     }
                     throw new StorageException("事务执行失败：" + ex.getMessage(), ex);
+                } catch (final RuntimeException | Error failure) {
+                    // 事务体抛运行时异常/错误也**必须回滚**：此前只捕 SQLException，于是异常穿过本块后，
+                    // 下面 finally 的 setAutoCommit(true) 会按 JDBC 规范把这个**半截事务提交**掉
+                    // （后果：主行已改、子行未重建，且没有任何报错——最难排查的一类）。
+                    rollbackFailed = !rollbackQuietly(conn, failure);
+                    throw failure;
                 } finally {
-                    try {
-                        conn.setAutoCommit(origAutoCommit);
-                    } catch (final SQLException ignored) {
+                    // 回滚失败 ⇒ 连接状态未知，**不得**恢复 autoCommit（那会提交未回滚的事务）；
+                    // 留给 try-with-resources 关闭，由连接池淘汰这条损坏连接。
+                    if (!rollbackFailed) {
+                        try {
+                            conn.setAutoCommit(origAutoCommit);
+                        } catch (final SQLException ignored) {
+                        }
                     }
                 }
             } catch (final SQLException connEx) {
@@ -118,6 +126,17 @@ public final class TransactionManager {
                 conn.setAutoCommit(orig);
             } catch (final SQLException ignored) {
             }
+        }
+    }
+
+    /** 静默回滚；失败时挂到原异常的 suppressed 上并返回 {@code false}（调用方据此放弃这条连接）。 */
+    private static boolean rollbackQuietly(final Connection conn, final Throwable failure) {
+        try {
+            conn.rollback();
+            return true;
+        } catch (final SQLException rollbackFailure) {
+            failure.addSuppressed(rollbackFailure);
+            return false;
         }
     }
 
