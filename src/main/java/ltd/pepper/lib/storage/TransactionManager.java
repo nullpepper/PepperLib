@@ -122,8 +122,9 @@ public final class TransactionManager {
     }
 
     private static boolean isDeadlockOrBusy(final SQLException e) {
-        final int code = e.getErrorCode();
-        final String state = e.getSQLState();
-        return code == 1213 || code == 1205 || code == 5 || "40001".equals(state);
+        // 委托给全库唯一的瞬时错误口径（SqlExceptions.isTransient）。此处原先自带一份
+        // code==1213||1205||5||state==40001 的判定，与 SqlExceptions.isBusyViolation 分叉：
+        // 同一个库、同一类故障，走事务路径会重试，走 JdbcRetry 路径却不会。
+        return SqlExceptions.isTransient(e);
     }
 }

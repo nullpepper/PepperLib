@@ -6,9 +6,9 @@ import java.sql.SQLException;
 /**
  * JDBC 写操作有限次退避重试（源自 PepperBotBindManager {@code BindManagerImpl} 提取）。
  *
- * <p>只对 {@link SqlExceptions#isBusyViolation transient busy} 异常重试
- * （如 SQLite 单写者场景的偶发 {@code SQLITE_BUSY}），唯一键冲突等非 transient
- * 异常立即上抛。每次尝试重新获取连接（{@link ConnectionSupplier}），退避时长
+ * <p>只对 {@link SqlExceptions#isTransient 瞬时错误}重试
+ * （连接异常、串行化失败、MySQL/MariaDB 死锁与锁等待超时、SQLite {@code SQLITE_BUSY}），
+ * 唯一键冲突等非瞬时异常立即上抛。每次尝试重新获取连接（{@link ConnectionSupplier}），退避时长
  * {@code baseDelayMs * attempt}，中断时恢复中断位并上抛当前异常。</p>
  */
 public final class JdbcRetry {
@@ -54,7 +54,7 @@ public final class JdbcRetry {
                 return action.apply(conn);
             } catch (SQLException e) {
                 last = e;
-                if (!SqlExceptions.isBusyViolation(e) || attempt == maxRetries) {
+                if (!SqlExceptions.isTransient(e) || attempt == maxRetries) {
                     throw e;
                 }
                 try {

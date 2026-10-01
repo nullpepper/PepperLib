@@ -71,5 +71,58 @@ class SqlExceptionsTest {
         SQLException syntax = new SQLException("near \"SELEC\": syntax error", "42000");
         assertFalse(SqlExceptions.isUniqueViolation(syntax));
         assertFalse(SqlExceptions.isBusyViolation(syntax));
+        assertFalse(SqlExceptions.isTransient(syntax), "语法错误不该被重试");
+    }
+
+    // ==================== 统一口径：isTransient ====================
+
+    @Test
+    @DisplayName("isTransient：JDBC 自带语义（SQLTransientException / SQLRecoverableException）")
+    void transientByJdbcSemantics() {
+        assertTrue(SqlExceptions.isTransient(new java.sql.SQLTransientException("try again")));
+        assertTrue(SqlExceptions.isTransient(new java.sql.SQLRecoverableException("link down")));
+    }
+
+    @Test
+    @DisplayName("isTransient：MySQL/MariaDB 死锁 1213 与锁等待超时 1205（SQLState 可能缺失）")
+    void transientByMysqlErrorCodes() {
+        // 关键：这两个码的 SQLState 可能是 40001，也可能缺失 —— 只按 SQLState 判会漏。
+        assertTrue(SqlExceptions.isTransient(new SQLException("Deadlock found", null, 1213)));
+        assertTrue(SqlExceptions.isTransient(new SQLException("Lock wait timeout exceeded", null, 1205)));
+    }
+
+    @Test
+    @DisplayName("isTransient：SQLState 08xxx（连接）/ 40001（串行化）/ HYTxx（超时）")
+    void transientBySqlState() {
+        assertTrue(SqlExceptions.isTransient(new SQLException("communications link failure", "08S01")));
+        assertTrue(SqlExceptions.isTransient(new SQLException("serialization failure", "40001")));
+        assertTrue(SqlExceptions.isTransient(new SQLException("timeout", "HYT00")));
+    }
+
+    @Test
+    @DisplayName("isTransient：包含 SQLite busy，但唯一键冲突与语法错误都不算（不重复失败）")
+    void transientCoversBusyButNotUniqueOrSyntax() {
+        assertTrue(SqlExceptions.isTransient(new SQLException("database is locked", null, 5)), "SQLite busy 必须可重试");
+        assertTrue(SqlExceptions.isTransient(new SQLException("SQLITE_BUSY: database is locked")), "消息兜底形态同样算");
+
+        assertFalse(
+                SqlExceptions.isTransient(new SQLException("Duplicate entry '1' for key 't.PRIMARY'", "23000")),
+                "唯一键冲突重试只会重复失败");
+        assertFalse(
+                SqlExceptions.isTransient(new SQLException("UNIQUE constraint failed: t.id", null, 19)),
+                "SQLite 唯一约束（errorCode 19）不是 busy");
+        assertFalse(SqlExceptions.isTransient(new SQLException("near \"SELEC\": syntax error", "42000")));
+    }
+
+    @Test
+    @DisplayName("isBusyViolation 是 isTransient 的窄子集：SQLite busy 两者都认，死锁只有 isTransient 认")
+    void busyIsNarrowerSubsetOfTransient() {
+        SQLException sqliteBusy = new SQLException("database is locked", null, 5);
+        assertTrue(SqlExceptions.isBusyViolation(sqliteBusy));
+        assertTrue(SqlExceptions.isTransient(sqliteBusy), "窄口径命中时宽口径必须也命中");
+
+        SQLException mysqlDeadlock = new SQLException("Deadlock found", null, 1213);
+        assertFalse(SqlExceptions.isBusyViolation(mysqlDeadlock), "忙判定只针对 SQLite 单写者冲突");
+        assertTrue(SqlExceptions.isTransient(mysqlDeadlock), "死锁属于可重试的瞬时错误");
     }
 }
