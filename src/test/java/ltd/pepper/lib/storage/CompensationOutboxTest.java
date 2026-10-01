@@ -101,4 +101,27 @@ class CompensationOutboxTest {
 
         assertEquals(0, this.outbox.resetStaleProcessing(this.connection, 60_000));
     }
+
+    @Test
+    void staleProcessingTransitionsToManualReviewWhenMaxAttemptsExceeded() throws SQLException {
+        // 创建最大重试次数为 1 的 outbox
+        final CompensationOutbox strictOutbox = new CompensationOutbox("strict_outbox", 1);
+        strictOutbox.ensureTable(this.connection, this.dialect);
+
+        strictOutbox.enqueue(this.connection, "money-transfer", "{}");
+        // 第一次认领，attempts 递增为 1
+        assertEquals(1, strictOutbox.claimPending(this.connection, 10).size());
+
+        // 模拟超时 1 小时
+        try (Statement s = this.connection.createStatement()) {
+            s.execute("UPDATE strict_outbox SET updated_at = updated_at - 3600000");
+        }
+
+        // 自愈重置：因为 attempts >= max_attempts，必须流转为 MANUAL_REVIEW 而非 PENDING
+        final int resetCount = strictOutbox.resetStaleProcessing(this.connection, 60_000);
+        assertEquals(1, resetCount);
+
+        // 无法再被常规 claimPending 认领，彻底杜绝无限重放刷钱
+        assertTrue(strictOutbox.claimPending(this.connection, 10).isEmpty(), "超限条目必须冻结为 MANUAL_REVIEW，不得再次自动重放");
+    }
 }

@@ -7,8 +7,8 @@ plugins {
 }
 
 group = "ltd.pepper"
-// 0.18.0：新增 ltd.pepper.lib.dialog（原生 Dialog 助手）——向后兼容的 API 增量。
-version = "0.18.0"
+// 0.19.0：存储核心持久化基建增强（TransactionManager、CacheInvalidationBus、PoolSettings 生产级、SafeMigration 分布式锁、Outbox 防刷状态机）。
+version = "0.19.0"
 description = "PepperLib - shared protocol, model and infrastructure primitives for PepperUnion and PepperClaim."
 
 java {

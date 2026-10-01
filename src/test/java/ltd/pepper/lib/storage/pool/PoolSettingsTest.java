@@ -77,7 +77,8 @@ class PoolSettingsTest {
         config.validate();
         final int minIdle = config.getMinimumIdle();
         assertTrue(minIdle >= 1, "minimumIdle 从未设置（validate 后仍为 -1）：" + minIdle);
-        assertTrue(minIdle < config.getMaximumPoolSize(), "minimumIdle=" + minIdle + " 必须 < max="
-                + config.getMaximumPoolSize());
+        assertTrue(
+                minIdle < config.getMaximumPoolSize(),
+                "minimumIdle=" + minIdle + " 必须 < max=" + config.getMaximumPoolSize());
     }
 }

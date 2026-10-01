@@ -57,12 +57,7 @@ public record PoolSettings(
                 );
     }
 
-    /**
-     * 显式开启驱动读超时（{@code socketTimeout}）。**调用方必须给出理由**：该值必须大于本插件最长的
-     * 合法语句耗时，否则长事务/大查询会被驱动直接砍断。
-     *
-     * @param socketTimeoutMs 读超时毫秒；{@code <= 0} 表示继续不写入
-     */
+    /** 显式开启驱动读超时（{@code socketTimeout}）。 */
     public PoolSettings withSocketTimeout(final long socketTimeoutMs) {
         return new PoolSettings(
                 this.maximumPoolSize,
@@ -73,6 +68,41 @@ public record PoolSettings(
                 this.validationTimeoutMs,
                 this.connectTimeoutMs,
                 socketTimeoutMs);
+    }
+
+    /**
+     * 生产级固定容量连接池（Fixed Pool 原则：minimumIdle == maximumPoolSize）。
+     *
+     * <p>对齐 HikariCP 官方生产环境推荐，消除并发突增时动态建连的 TCP/TLS 握手延迟毛刺。</p>
+     */
+    public static PoolSettings fixedPool(final int poolSize, final long connectionTimeoutMs) {
+        final int size = Math.max(1, poolSize);
+        final long validation = Math.max(1L, Math.min(2_000L, connectionTimeoutMs / 2));
+        return new PoolSettings(
+                size,
+                size,
+                connectionTimeoutMs,
+                1_800_000L, // 30min 生命周期退役
+                30_000L, // 30s 空闲连接保活探测
+                validation,
+                5_000L, // 5s 建连超时
+                15_000L // 15s 读写超时，防止底层挂起
+                );
+    }
+
+    /**
+     * SQLite 专用单连接池（单写者模型）。
+     */
+    public static PoolSettings sqliteSinglePool(final long connectionTimeoutMs) {
+        return new PoolSettings(
+                1,
+                1,
+                connectionTimeoutMs,
+                0L, // SQLite 本地文件不需要连接淘汰
+                0L, // 本地连接不需要 keepalive
+                Math.max(1L, Math.min(1_000L, connectionTimeoutMs / 2)),
+                5_000L,
+                0L);
     }
 
     /** 供 Hikari 消费的属性（键名 == setter 名）。 */
@@ -99,6 +129,29 @@ public record PoolSettings(
         }
         // 不在构造期建连：数据库不可用必须表现为首次取连接失败，而不是插件启用失败。
         properties.setProperty("initializationFailTimeout", "-1");
+        return properties;
+    }
+
+    /**
+     * 生产级属性装配：包含连接初始化 SQL（SQLite PRAGMA / MySQL 会话隔离）、连接泄漏检测（10s）与 Fail-Fast 设置。
+     */
+    public Properties toProductionProperties(
+            final String poolName,
+            final String jdbcUrl,
+            final String username,
+            final String password,
+            final boolean isSqlite) {
+        final Properties properties = toHikariProperties(poolName, jdbcUrl, username, password);
+        properties.setProperty("leakDetectionThreshold", "10000");
+        // 生产环境遵循快速失败（Fail-Fast）：10 秒内连不上立即暴露，杜绝带病运行
+        properties.setProperty("initializationFailTimeout", "10000");
+        if (isSqlite) {
+            properties.setProperty(
+                    "connectionInitSql",
+                    "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA synchronous=NORMAL;");
+        } else {
+            properties.setProperty("connectionInitSql", "SET SESSION sql_mode='TRADITIONAL';");
+        }
         return properties;
     }
 

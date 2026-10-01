@@ -35,10 +35,12 @@ public final class MigrationRunner {
 
     private final List<Migration> migrations;
     private final String versionTableName;
+    private final String lockName;
+    private final Set<Integer> grandfatherVersions;
 
     /** 使用默认版本表名 {@code schema_migrations}。 */
     public MigrationRunner(final List<Migration> migrations) {
-        this(migrations, "schema_migrations");
+        this(migrations, "schema_migrations", null, Set.of());
     }
 
     /**
@@ -49,6 +51,22 @@ public final class MigrationRunner {
      * @throws IllegalArgumentException 版本乱序/重复，或表名非法
      */
     public MigrationRunner(final List<Migration> migrations, final String versionTableName) {
+        this(migrations, versionTableName, null, Set.of());
+    }
+
+    /**
+     * 全特性构造器：支持分布式排他锁（MySQL GET_LOCK）与历史折叠版本豁免。
+     *
+     * @param migrations 迁移列表（版本必须严格递增且唯一）
+     * @param versionTableName 版本表名（仅字母数字下划线）
+     * @param lockName 分布式锁名（MySQL/MariaDB 锁，传 null 则不抢锁）
+     * @param grandfatherVersions 历史旧版折叠时豁免的版本集合（避免升级时误判为版本被移除而拒绝启动）
+     */
+    public MigrationRunner(
+            final List<Migration> migrations,
+            final String versionTableName,
+            final String lockName,
+            final Set<Integer> grandfatherVersions) {
         if (versionTableName == null || versionTableName.isBlank()) {
             throw new IllegalArgumentException("versionTableName must not be blank");
         }
@@ -56,7 +74,6 @@ public final class MigrationRunner {
             throw new IllegalArgumentException("versionTableName must match [A-Za-z0-9_]+");
         }
         final List<Migration> copy = List.copyOf(migrations);
-        // 版本治理：版本号必须严格递增且唯一，防止重复/乱序迁移静默跳过。
         int previous = 0;
         for (final Migration migration : copy) {
             final int version = migration.version();
@@ -68,6 +85,8 @@ public final class MigrationRunner {
         }
         this.migrations = copy;
         this.versionTableName = versionTableName;
+        this.lockName = lockName;
+        this.grandfatherVersions = grandfatherVersions == null ? Set.of() : Set.copyOf(grandfatherVersions);
     }
 
     /**
@@ -76,6 +95,10 @@ public final class MigrationRunner {
      * @throws StorageException 迁移失败、已应用版本高于已知版本、必需列缺失
      */
     public void run(final Connection connection, final SqlDialect dialect) {
+        final boolean useLock = this.lockName != null && !dialect.isSqlite();
+        if (useLock) {
+            acquireAdvisoryLock(connection, this.lockName);
+        }
         try {
             this.ensureTable(connection);
             final Map<Integer, String> appliedRows = this.appliedRows(connection);
@@ -96,12 +119,38 @@ public final class MigrationRunner {
             this.verifyRequiredColumns(connection);
         } catch (final SQLException e) {
             throw new StorageException("Failed to run database migrations: " + e.getMessage(), e);
+        } finally {
+            if (useLock) {
+                releaseAdvisoryLock(connection, this.lockName);
+            }
+        }
+    }
+
+    private static void acquireAdvisoryLock(final Connection conn, final String lock) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT GET_LOCK(?, 15)")) {
+            ps.setString(1, lock);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || rs.getInt(1) != 1) {
+                    throw new StorageException("Failed to acquire advisory migration lock: " + lock);
+                }
+            }
+        } catch (SQLException e) {
+            throw new StorageException("Error acquiring advisory lock for migrations", e);
+        }
+    }
+
+    private static void releaseAdvisoryLock(final Connection conn, final String lock) {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+            ps.setString(1, lock);
+            ps.executeQuery();
+        } catch (SQLException ignored) {
         }
     }
 
     /**
      * 防呆：数据库已应用了比插件已知更高的版本 → 迁移被移除过，
      * 继续启动会带着「旧 schema 新代码」的未知状态，直接拒绝启动。
+     * 若在 grandfatherVersions 中声明则予以豁免（支持旧版本折叠）。
      */
     private void verifyNoRemovedMigrations(final Set<Integer> applied) {
         final Set<Integer> known = new HashSet<>();
@@ -110,6 +159,7 @@ public final class MigrationRunner {
         }
         final Set<Integer> unknown = new TreeSet<>(applied);
         unknown.removeAll(known);
+        unknown.removeAll(this.grandfatherVersions);
         if (!unknown.isEmpty()) {
             throw new StorageException("Database contains unknown migration versions " + unknown
                     + " — migrations were removed or the plugin was downgraded; refusing to start");
