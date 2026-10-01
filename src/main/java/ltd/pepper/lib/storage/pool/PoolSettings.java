@@ -160,8 +160,22 @@ public record PoolSettings(
      *
      * <p>{@code connectTimeout} 恒定写入（建连必须有界）；{@code socketTimeout} 仅在
      * {@link #withSocketTimeout(long)} 显式开启后才写入（H2：读超时可能砍掉合法长语句）。</p>
+     *
+     * <p><b>不接受 SQLite 裸路径</b>（{@code jdbc:sqlite:/path/db}）：sqlite-jdbc 把查询串当成
+     * <b>文件名的一部分</b>，追加 {@code ?connectTimeout=…} 会另开一个空库，表现为"数据全没了"
+     * （F15，2026-09-30 实测）。这条守卫刻意放在库里而不是各消费方：原先三个消费方各自判断
+     * （Claim {@code JdbcStorage}、Union {@code SqlSupport}、BindManager 的 sqlite 分支），
+     * 第四个消费者照签名调用就会中招。{@code jdbc:sqlite:file:…}（URI 形态）参数是正常解析的，
+     * 因此放行。</p>
+     *
+     * @throws IllegalArgumentException 传入的是 SQLite 裸路径
      */
     public String jdbcUrlWithTimeouts(final String jdbcUrl) {
+        if (isBareSqlitePath(jdbcUrl)) {
+            throw new IllegalArgumentException("jdbcUrlWithTimeouts 不接受 SQLite 裸路径（" + jdbcUrl + "）：sqlite-jdbc 会把追加的"
+                    + "查询参数当成文件名的一部分，从而另开一个空库。请对 SQLite 使用原始 URL，"
+                    + "或在需要参数时改用 file: URI 形态（jdbc:sqlite:file:...）。");
+        }
         final StringBuilder url = new StringBuilder(jdbcUrl);
         url.append(jdbcUrl.indexOf('?') >= 0 ? '&' : '?');
         url.append("connectTimeout=").append(this.connectTimeoutMs);
@@ -169,5 +183,13 @@ public record PoolSettings(
             url.append("&socketTimeout=").append(this.socketTimeoutMs);
         }
         return url.toString();
+    }
+
+    /**
+     * 是否为「不支持查询参数」的 SQLite URL：SQLite 的绝对/相对裸路径都属此类；
+     * {@code file:} URI 形态支持参数（内存库 {@code file:memdb?mode=memory} 正依赖这一点）。
+     */
+    public static boolean isBareSqlitePath(final String jdbcUrl) {
+        return jdbcUrl != null && jdbcUrl.startsWith("jdbc:sqlite:") && !jdbcUrl.startsWith("jdbc:sqlite:file:");
     }
 }

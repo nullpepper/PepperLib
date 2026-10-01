@@ -110,18 +110,22 @@ publishing {
     }
 }
 
-// 二进制兼容门（发布面，§10）：基线 = 上一发布版本坐标（默认 mavenLocal 的 0.5.0，
+// 二进制兼容门（发布面，§10）：基线 = 上一发布版本坐标（默认 mavenLocal 的 0.18.0，
 // 可用环境变量 PEPPER_LIB_BASELINE_JAR 覆盖；发布新版本后更新默认值）。
 // 已纳入 check（绿门）；基线 jar 缺失时跳过并告警（fresh 环境/CI 无本地发布历史）——
 // 接入远程发布后，CI 经 PEPPER_LIB_BASELINE_JAR 提供上一版本产物即自动生效。
+//
+// 2026-10-01 校正：原默认值指向 `io/pepper/pepper-lib/0.5.0`——那是**旧 group**（真实坐标是
+// `ltd.pepper`），且落后 14 个小版本。后果是这道门只会回答"相对 0.5.0 删了什么"，
+// 对真实的升级窗口（相邻版本）不具判别力。基线改为生产正在运行的 0.18.0。
 val japicmpBaseline =
     providers.environmentVariable("PEPPER_LIB_BASELINE_JAR")
         .map(::file)
-        .orElse(file("${System.getProperty("user.home")}/.m2/repository/io/pepper/pepper-lib/0.5.0/pepper-lib-0.5.0.jar"))
+        .orElse(file("${System.getProperty("user.home")}/.m2/repository/ltd/pepper/pepper-lib/0.18.0/pepper-lib-0.18.0.jar"))
 
 val japicmp = tasks.register<me.champeau.gradle.japicmp.JapicmpTask>("japicmp") {
     group = "verification"
-    description = "与上一发布版本（0.5.0）做二进制兼容性比较；破坏性变更即失败。"
+    description = "与上一发布版本（0.18.0，生产在跑的那版）做二进制兼容性比较；破坏性变更即失败。"
     oldClasspath = files(japicmpBaseline)
     newClasspath = files(tasks.jar)
     // 外部依赖类型（Paper/PAPI/Vault 为 compileOnly）不参与比较；只分析库自身 API。

@@ -3,6 +3,7 @@ package ltd.pepper.lib.storage.pool;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariConfig;
@@ -80,5 +81,50 @@ class PoolSettingsTest {
         assertTrue(
                 minIdle < config.getMaximumPoolSize(),
                 "minimumIdle=" + minIdle + " 必须 < max=" + config.getMaximumPoolSize());
+    }
+
+    @Test
+    @DisplayName("F15：SQLite 裸路径必须拒绝而不是被拼上 ?connectTimeout=（否则另开空库、数据“消失”）")
+    void rejectsBareSqlitePaths() {
+        final PoolSettings settings = PoolSettings.forPoolSize(2, 5_000L);
+
+        // 绝对路径与相对路径都是裸路径：sqlite-jdbc 会把查询串当文件名的一部分。
+        for (final String bare :
+                new String[] {"jdbc:sqlite:/tmp/x/plain.db", "jdbc:sqlite:rel.db", "jdbc:sqlite:pepperclaim.db"}) {
+            assertTrue(PoolSettings.isBareSqlitePath(bare), "应判为裸路径：" + bare);
+            final IllegalArgumentException refused = assertThrows(
+                    IllegalArgumentException.class, () -> settings.jdbcUrlWithTimeouts(bare), "必须拒绝：" + bare);
+            assertTrue(refused.getMessage().contains("SQLite"), "错误消息要点明是 SQLite：" + refused.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("F15 反面：file: URI 形态仍可带参数通过（内存库依赖这一点）")
+    void allowsSqliteFileUriForm() {
+        final PoolSettings settings = PoolSettings.forPoolSize(2, 5_000L);
+
+        // 内存库/URI 形态的参数是正常解析的，不能因为“是 sqlite”就一刀切拒绝。
+        final String memoryUrl = "jdbc:sqlite:file:memdb?mode=memory&cache=shared";
+        assertFalse(PoolSettings.isBareSqlitePath(memoryUrl), "file: URI 不是裸路径：" + memoryUrl);
+
+        final String withTimeout = settings.jdbcUrlWithTimeouts(memoryUrl);
+        assertTrue(withTimeout.contains("mode=memory"), "不得丢弃已有参数：" + withTimeout);
+        assertTrue(withTimeout.contains("connectTimeout="), "应追加 connectTimeout：" + withTimeout);
+
+        // 文件型 URI 同样放行。
+        assertFalse(PoolSettings.isBareSqlitePath("jdbc:sqlite:file:/tmp/x/uri.db"));
+        assertTrue(
+                settings.jdbcUrlWithTimeouts("jdbc:sqlite:file:/tmp/x/uri.db").contains("connectTimeout="));
+    }
+
+    @Test
+    @DisplayName("非 SQLite URL（MariaDB/MySQL）不受该守卫影响")
+    void nonSqliteUrlsAreUnaffected() {
+        final PoolSettings settings = PoolSettings.forPoolSize(2, 5_000L);
+
+        assertFalse(PoolSettings.isBareSqlitePath("jdbc:mariadb://h:3306/db"));
+        assertFalse(PoolSettings.isBareSqlitePath("jdbc:mysql://h:3306/db"));
+        assertFalse(PoolSettings.isBareSqlitePath(null));
+        assertTrue(settings.jdbcUrlWithTimeouts("jdbc:mariadb://h:3306/db").contains("connectTimeout="));
     }
 }
