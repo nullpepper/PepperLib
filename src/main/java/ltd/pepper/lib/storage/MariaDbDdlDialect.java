@@ -46,9 +46,20 @@ public abstract class MariaDbDdlDialect implements DdlDialect {
         return true;
     }
 
+    /**
+     * {@code CREATE INDEX IF NOT EXISTS} 的支持情况<b>在同一方言类内并不一致</b>：MariaDB 自 10.1.4 起
+     * <b>支持</b>该语法（2026-10-01 在 MariaDB 11.8 实测通过；生产 PepperTitle 的 {@code idx_grants_lookup}
+     * 正是用它建成的），而 <b>MySQL 不支持</b>。本类同时服务 {@code MYSQL} 与 {@code MARIADB} 两种
+     * storage.type，因此<b>保守返回 {@code false}</b>——调用方走"普通 {@code CREATE INDEX} + 幂等处理"
+     * 这条路在两者上都成立。
+     *
+     * <p>（此前注释写作"MySQL/MariaDB 不支持"，那是把 MySQL 的行为当成了两者的行为。）若某部署确定只跑
+     * MariaDB，可覆盖为 {@code true}。做成常量而非按连接探测，是因为本接口无 {@code Connection} 参数，
+     * 无法按服务端产品名判定。</p>
+     */
     @Override
     public boolean supportsIndexIfNotExists() {
-        return false; // MySQL/MariaDB 不支持 CREATE INDEX IF NOT EXISTS
+        return false;
     }
 
     @Override
